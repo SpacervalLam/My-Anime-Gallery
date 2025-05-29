@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* 全局隐藏滚动条但保留滚动功能 */
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* 确保所有滚动容器都隐藏滚动条 */
+.scroll-container,
+.scroll-container * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.scroll-container::-webkit-scrollbar,
+.scroll-container *::-webkit-scrollbar {
+  display: none !important;
+}
+/* 禁用滚动条 */
+html, body {
+  overflow: hidden;
+}
