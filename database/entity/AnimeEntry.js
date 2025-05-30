@@ -19,7 +19,7 @@ module.exports = new EntitySchema({
       type: 'text',
       nullable: false
     },
-    // 动画的其他标题，可以为空
+    // 其他标题，可以为空
     altTitles: {
       type: 'text',
       nullable: true

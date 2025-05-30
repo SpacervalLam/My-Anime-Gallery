@@ -126,7 +126,10 @@
 
                 <!-- 标签展示 -->
                 <div class="tags-container">
-                  <span v-for="(tag, idx) in item.tags ? JSON.parse(item.tags) : []" :key="idx" class="tag">
+                  <span v-for="(tag, idx) in item.tags ? JSON.parse(item.tags) : []" :key="idx" class="tag" :style="{
+                    backgroundColor: getRandomLightColor(tag),
+                    color: '#333'    /* 或者根据需要自动计算反色 */
+                  }">
                     {{ tag }}
                   </span>
                   <span v-if="!item.tags || JSON.parse(item.tags).length === 0" class="no-tags">
@@ -200,6 +203,16 @@ const currentDragId = ref(null);
 const openCardId = ref(null);
 const fixedStates = ref({});
 const isTagsExpanded = ref(false); // 默认折叠标签区域
+const tagColors = ref({});
+
+function getRandomLightColor(tag) {
+  if (!tagColors.value[tag]) {
+    const hue = Math.floor(Math.random() * 360);
+    // 饱和度 60%，亮度 85%
+    tagColors.value[tag] = `hsl(${hue}, 60%, 85%)`;
+  }
+  return tagColors.value[tag];
+}
 
 function handleStart(e, id) {
   e.preventDefault();
@@ -288,13 +301,14 @@ async function remove(id) {
 }
 
 function edit(item) {
-  swipePositions.value[item.id] = 0;
-  openCardId.value = null;
+  // 打开表单
+  openForm()
+  // 把要编辑的 entry 详情丢给表单
   window.dispatchEvent(new CustomEvent('edit-entry', { detail: item }));
 }
 
 function openForm() {
-  window.dispatchEvent(new CustomEvent('open-form'));
+  window.dispatchEvent(new CustomEvent('open-form', { detail: { isNew: true } }));
 }
 
 function handleClickOutside(e) {
@@ -354,7 +368,6 @@ function handleClickOutside(e) {
 
 .cover-container.compact {
   aspect-ratio: 2 / 1;
-  /* 紧凑视图下也保持相同比例 */
 }
 
 .cover-image {
@@ -432,7 +445,6 @@ function handleClickOutside(e) {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 其余原有样式保持不变... */
 .gallery-container {
   padding: 15px;
   max-width: 1200px;

@@ -35,21 +35,21 @@ async function createWindow() {
   win.setFullScreen(true);
 
   // 设置安全的内容安全策略
-win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-  callback({
-    responseHeaders: {
-      ...details.responseHeaders,
-      'Content-Security-Policy': [`
-        default-src 'self' 'unsafe-inline' data:;
-        script-src  'self' 'unsafe-inline';
-        connect-src 'self' http://localhost:3000 ws://localhost:3000;
-        style-src   'self' 'unsafe-inline';
-        img-src     'self' data: file: blob:;
-        media-src   'self' data: file: blob:;
-      `.replace(/\s+/g,' ') ]
-    }
+  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [`
+        default-src   'self' 'unsafe-inline' data: file: blob:;
+        script-src    'self' 'unsafe-inline';
+        connect-src   'self' http://localhost:3000 ws://localhost:3000 file: blob: data:;
+        style-src     'self' 'unsafe-inline';
+        img-src       'self' data: file: blob:;
+        media-src     'self' data: file: blob:;
+      `.replace(/\s+/g, ' ')]
+      }
+    });
   });
-});
 
   // 开发模式下
   win.loadURL(

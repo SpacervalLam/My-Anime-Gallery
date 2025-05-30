@@ -9,7 +9,7 @@ import BookFlip from './components/BookFlip.vue';
 </script>
 
 <style>
-/* 确保全局背景透明 */
+/* 全局背景透明 */
 html, body {
   background: transparent !important;
   margin: 0;

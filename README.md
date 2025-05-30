@@ -4,6 +4,7 @@ My-Anime
 ├─ database
 │  └─ entity
 │     └─ AnimeEntry.js
+├─ db.sqlite
 ├─ electron.main.js
 ├─ index.html
 ├─ package.json
@@ -21,8 +22,10 @@ My-Anime
 │  │     └─ main.css
 │  ├─ components
 │  │  ├─ BookFlip.vue
+│  │  ├─ EntryDetail.vue
 │  │  ├─ EntryForm.vue
-│  │  └─ EntryList.vue
+│  │  ├─ EntryList.vue
+│  │  └─ SearchComponent.vue
 │  ├─ index.js
 │  └─ main.js
 ├─ tailwind.config.js
