@@ -7,7 +7,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <input v-model="searchQuery" placeholder="搜索动画标题..." class="search-input" @input="onInput"
+        <input v-model="searchQuery" placeholder="搜索动画标题..." class="search-input" @input="onInput" @keydown="onKeyDown"
           @focus="isFocused = true" @blur="isFocused = false" />
         <div v-if="searchQuery" class="clear-btn" @click="clearSearch">
           <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -17,8 +17,10 @@
         </div>
       </div>
 
-      <div v-if="suggestions.length" class="suggestion-list" :class="{ 'active': isFocused || suggestions.length }">
-        <div v-for="item in suggestions" :key="item.id" class="suggestion-item" @click="selectSuggestion(item)">
+      <div v-if="suggestions.length" ref="suggestionListRef" class="suggestion-list"
+        :class="{ 'active': isFocused || suggestions.length }">
+        <div v-for="(item, index) in suggestions" :key="item.id" class="suggestion-item"
+          :class="{ highlighted: index === highlightedIndex }" @click="selectSuggestion(item)">
           <div class="suggestion-image-wrapper">
             <img v-if="item.coverPath" :src="`file://${item.coverPath}`" class="suggestion-image" alt="封面" />
             <div v-else class="suggestion-image placeholder"></div>
@@ -36,6 +38,7 @@
           </div>
         </div>
       </div>
+
       <div v-else-if="searchQuery && !suggestions.length" class="no-results">
         未找到匹配的条目
       </div>
@@ -44,17 +47,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 
 const emit = defineEmits(['result-click']);
 const searchQuery = ref('');
 const entries = ref([]);
 const suggestions = ref([]);
 const isFocused = ref(false);
+const highlightedIndex = ref(-1);
+const suggestionListRef = ref(null);
 
 async function loadEntries() {
   entries.value = await window.electronAPI.getEntries();
-  // 如果当前有关键字，立即刷新一次建议列表
   if (searchQuery.value) onInput();
 }
 
@@ -67,6 +71,10 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('entry-saved', loadEntries);
   window.removeEventListener('entry-deleted', loadEntries);
+});
+
+watch(searchQuery, () => {
+  highlightedIndex.value = -1;
 });
 
 function parseAltTitles(altTitles) {
@@ -96,8 +104,7 @@ function onInput() {
     .filter(e => {
       const title = (e.title || '').toLowerCase();
       const alt = e.altTitles ? JSON.parse(e.altTitles) : [];
-      return title.includes(q)
-        || alt.some(t => t.toLowerCase().includes(q));
+      return title.includes(q) || alt.some(t => t.toLowerCase().includes(q));
     })
     .slice(0, 10);
 }
@@ -105,12 +112,52 @@ function onInput() {
 function selectSuggestion(item) {
   searchQuery.value = item.title;
   suggestions.value = [];
+  highlightedIndex.value = -1;
   emit('result-click', item.id);
 }
 
 function clearSearch() {
   searchQuery.value = '';
   suggestions.value = [];
+  highlightedIndex.value = -1;
+}
+
+function onKeyDown(e) {
+  const len = suggestions.value.length;
+  if (!len) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    highlightedIndex.value = (highlightedIndex.value + 1) % len;
+    scrollToHighlighted();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    highlightedIndex.value = (highlightedIndex.value - 1 + len) % len;
+    scrollToHighlighted();
+  } else if (e.key === 'Enter') {
+    if (highlightedIndex.value >= 0 && highlightedIndex.value < len) {
+      selectSuggestion(suggestions.value[highlightedIndex.value]);
+    }
+  } else if (e.key === 'Tab') {
+    if (highlightedIndex.value === -1 && len > 0) {
+      highlightedIndex.value = 0;
+      scrollToHighlighted();
+      e.preventDefault();
+    }
+  } else if (e.key === 'Escape') {
+    suggestions.value = [];
+    highlightedIndex.value = -1;
+  }
+}
+
+function scrollToHighlighted() {
+  nextTick(() => {
+    const container = suggestionListRef.value;
+    const activeItem = container?.querySelector('.suggestion-item.highlighted');
+    if (activeItem && container) {
+      activeItem.scrollIntoView({ block: 'nearest' });
+    }
+  });
 }
 </script>
 
@@ -235,6 +282,11 @@ function clearSearch() {
 
 .suggestion-item:hover {
   background: rgba(241, 245, 249, 0.7);
+  transform: translateX(5px);
+}
+
+.suggestion-item.highlighted {
+  background: rgba(99, 102, 241, 0.1);
   transform: translateX(5px);
 }
 
