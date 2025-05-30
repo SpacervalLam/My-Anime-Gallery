@@ -3,7 +3,7 @@
     <div v-if="showModal" class="modal-backdrop"></div>
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
-        <EntryForm @close="closeModal" />
+        <EntryForm :initialEntry="editingEntry" @close="closeModal" />
       </div>
     </div>
 
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-            <div class="page inner">
+      <div class="page inner">
         <div class="content-page">
           <div class="single-page-content">
             <div class="additional-content">更多内容区域1</div>
@@ -80,6 +80,7 @@ import SearchComponent from './SearchComponent.vue';
 const wrapper = ref(null);
 const container = ref(null);
 const showModal = ref(false);
+const editingEntry = ref(null);
 const pageFlip = ref(null);
 const originalOverflow = ref('');
 const currentEntryId = ref(null); // 当前显示的条目ID
@@ -145,6 +146,12 @@ const closeModal = () => {
   }
 };
 
+function openEditModal(entry) {
+  console.log('[BookFlip] openEditModal', entry.id);
+  editingEntry.value = entry;
+  openModal();
+}
+
 // 处理键盘按下事件，ESC 键关闭模态框
 const handleKeydown = (e) => {
   if (e.key === 'Escape') {
@@ -204,6 +211,11 @@ onMounted(() => {
     }
   });
 
+  // 监听“开始编辑”事件
+  window.addEventListener('start-edit-entry', (e) => {
+    openEditModal(e.detail);
+  });
+
   const pages = Array.from(container.value.querySelectorAll('.page'));
   pageFlip.value.loadFromHTML(pages);
 
@@ -215,18 +227,15 @@ onMounted(() => {
   window.addEventListener('edit-entry', (e) => openEditModal(e.detail));
 });
 
-// 组件卸载前移除事件监听器
-const openEditModal = (entry) => {
-  currentEntryId.value = entry.id;
-  openModal();
-};
 
+// 组件卸载前移除事件监听器
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   window.removeEventListener('open-form', openModal);
   window.removeEventListener('close-form', closeModal);
-  window.removeEventListener('edit-entry', openEditModal);
+  window.removeEventListener('start-edit-entry', openEditModal);
   document.removeEventListener('keydown', handleKeydown);
+
 });
 </script>
 
@@ -290,12 +299,15 @@ body.modal-open .pf__page-cover-back {
   width: 100%;
   max-height: 90%;
   overflow-y: scroll;
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .modal-content::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
+  display: none;
+  /* Chrome, Safari and Opera */
 }
 
 .book-container {

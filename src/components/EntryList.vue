@@ -301,10 +301,9 @@ async function remove(id) {
 }
 
 function edit(item) {
-  // 打开表单
-  openForm()
   // 把要编辑的 entry 详情丢给表单
-  window.dispatchEvent(new CustomEvent('edit-entry', { detail: item }));
+  console.log('[EntryList] dispatch start-edit-entry', item.id);
+  window.dispatchEvent(new CustomEvent('start-edit-entry', { detail: item }));
 }
 
 function openForm() {

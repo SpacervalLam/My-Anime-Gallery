@@ -211,8 +211,8 @@
         <div class="pt-3 flex gap-2">
           <button type="submit"
             class="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-lg font-medium hover:bg-indigo-600 transition flex items-center justify-center gap-1 text-sm">
-            <svg v-if="isEditing" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
+            <svg v-if="formState.isEditing" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+              viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
@@ -221,9 +221,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
             </svg>
-            {{ isEditing ? '更新条目' : '保存条目' }}
+            {{ formState.isEditing ? '更新条目' : '保存条目' }}
           </button>
-          <button v-if="isEditing" type="button" @click="cancelEdit"
+          <button v-if="formState.isEditing" type="button" @click="cancelEdit"
             class="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg font-medium hover:bg-gray-500 transition text-sm flex items-center justify-center gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
               stroke="currentColor">
@@ -238,7 +238,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 
@@ -252,7 +252,6 @@ async function loadAllTags() {
   allTags.value = tags;
 }
 
-const isEditing = ref(false);
 const currentId = ref(null);
 const title = ref('');
 const altTitles = ref([]);
@@ -270,6 +269,12 @@ const description = ref('');
 let cropperInstance = null;
 const cropperImgRef = ref(null);
 const tagColors = ref({});
+const props = defineProps({
+  initialEntry: {
+    type: Object,
+    default: null
+  }
+});
 
 const formState = ref({
   isVisible: false,
@@ -320,55 +325,73 @@ function removeLink(index) {
   links.value.splice(index, 1);
 }
 
-onMounted(() => {
-  loadAllTags();
-  window.addEventListener('tags-updated', loadAllTags);
+watch(() => props.initialEntry, entry => {
+  if (!entry) return;
+  console.log('[EntryForm] init form with', entry.id);
+  formState.value.isVisible = true;
+  formState.value.isEditing = true;
+  formState.value.currentId = entry.id;
 
-  // 修改事件监听器
-  window.addEventListener('open-form', (e) => {
-    const isNew = e.detail?.isNew || false;
-    resetForm();
-    formState.value.isVisible = true;
-    formState.value.isEditing = !isNew;
+  title.value = entry.title;
+  altTitles.value = JSON.parse(entry.altTitles);
+  tags.value = entry.tags ? JSON.parse(entry.tags) : [];
+  links.value = entry.links ? JSON.parse(entry.links) : [];
+  coverPath.value = entry.coverPath;
+  musicPath.value = entry.music || null;
+  description.value = entry.description || '';
 
-    if (isNew) {
-      formState.value.currentId = null;
-    }
-  });
+  previewImageUrl.value = entry.coverPath;
+  cropperImageUrl.value = entry.coverPath;
+  nextTick(initCropper);
+},
+  { immediate: true }
+);
 
-  window.addEventListener('edit-entry', async (e) => {
-    const entry = e.detail;
 
-    // 确保表单可见
-    formState.value.isVisible = true;
-    formState.value.isEditing = true;
-    formState.value.currentId = entry.id;
+// onMounted(() => {
+//   loadAllTags();
+//   window.addEventListener('tags-updated', loadAllTags);
 
-    // 填充表单数据
-    formState.value.isVisible = true;
-    formState.value.isEditing = true;
-    formState.value.currentId = entry.id;
-    isEditing.value = true;
-    currentId.value = entry.id;
-    title.value = entry.title;
-    altTitles.value = JSON.parse(entry.altTitles);
-    tags.value = entry.tags ? JSON.parse(entry.tags) : [];
-    links.value = entry.links ? JSON.parse(entry.links) : [];
-    coverPath.value = entry.coverPath;
-    musicPath.value = entry.music || null;
-    description.value = entry.description || '';
+//   // 统一使用 formState 管理状态
+//   window.addEventListener('open-form', (e) => {
+//     const isNew = e.detail?.isNew || false;
+//     resetForm();
+//     formState.value.isVisible = true;
+//     formState.value.isEditing = !isNew;
+//     formState.value.currentId = null;
+//   });
 
-    if (isEditing.value) {
-      showEscHint.value = false;
-    }
+//   window.addEventListener('edit-entry', async (e) => {
+//     const entry = e.detail;
 
-    previewImageUrl.value = entry.coverPath;
-    cropperImageUrl.value = entry.coverPath;
-    
-    await nextTick();
-    initCropper();
-  });
-});
+//     // 重置表单状态
+//     resetForm();
+
+//     // 设置表单状态
+//     formState.value.isVisible = true;
+//     formState.value.isEditing = true;
+//     formState.value.currentId = entry.id;
+
+//     // 填充表单数据
+//     title.value = entry.title;
+//     altTitles.value = JSON.parse(entry.altTitles);
+//     tags.value = entry.tags ? JSON.parse(entry.tags) : [];
+//     links.value = entry.links ? JSON.parse(entry.links) : [];
+//     coverPath.value = entry.coverPath;
+//     musicPath.value = entry.music || null;
+//     description.value = entry.description || '';
+
+//     if (formState.isEditing.value) {
+//       showEscHint.value = false;
+//     }
+
+//     previewImageUrl.value = entry.coverPath;
+//     cropperImageUrl.value = entry.coverPath;
+
+//     await nextTick();
+//     initCropper();
+//   });
+// });
 
 function toggleAltTitleInput() {
   showAltTitleInput.value = true;
@@ -393,7 +416,7 @@ function removeAltTitle(index) {
 }
 
 function cancelEdit() {
-  isEditing.value = false;
+  formState.isEditing.value = false;
   resetForm();
 }
 
@@ -500,7 +523,7 @@ async function onSubmit() {
   const tagsToSave = tags.value && tags.value.length ? tags.value : [];
 
   const entry = {
-    id: currentId.value,
+    id: formState.value.currentId,
     title: title.value,
     altTitles: JSON.stringify(altTitles.value.filter(t => t)),
     tags: JSON.stringify(tagsToSave),
@@ -510,14 +533,14 @@ async function onSubmit() {
     description: description.value.trim() || null
   };
 
-  if (isEditing.value) {
+  if (formState.isEditing.value) {
     await window.electronAPI.updateEntry(entry);
   } else {
     await window.electronAPI.saveEntry(entry);
   }
 
   resetForm();
-  isEditing.value = false;
+  formState.isEditing.value = false;
   window.dispatchEvent(new Event('entry-saved'));
 }
 </script>
