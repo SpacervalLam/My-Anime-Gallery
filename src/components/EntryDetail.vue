@@ -1,61 +1,57 @@
 <template>
   <div class="entry-detail-page">
+    <audio ref="audioEl" loop></audio>
     <div v-if="loading" class="loading-indicator">
       <div class="spinner"></div>
       <span>加载中...</span>
     </div>
-    
+
     <div v-else-if="entry" class="entry-detail-content">
       <!-- 静音按钮 -->
       <div class="audio-control">
-        <button 
-          @click="toggleMute" 
-          class="mute-button" 
-          :class="{ rotating: !isMuted, disabled: !hasMusic }"
-          :disabled="!hasMusic"
-          :title="hasMusic ? (isMuted ? '取消静音' : '静音') : '无背景音乐'"
-        >
-          <svg v-if="!isMuted" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m-2.828-9.9a9 9 0 012.728-2.728"></path>
+        <button @click="toggleMute" class="mute-button" :class="{ rotating: !isMuted, disabled: !hasMusic }"
+          :disabled="!hasMusic" :title="hasMusic ? (isMuted ? '取消静音' : '静音') : '无背景音乐'">
+          <svg v-if="!isMuted" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m-2.828-9.9a9 9 0 012.728-2.728">
+            </path>
           </svg>
-          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+              clip-rule="evenodd"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
           </svg>
         </button>
       </div>
-      
+
       <!-- 封面图片 -->
       <div class="cover-container">
-        <img 
-          :src="entry.coverPath ? `file://${entry.coverPath}` : '/images/placeholder.jpg'" 
-          class="cover-image" 
-          alt="封面图片"
-        />
+        <img :src="entry.coverPath ? `file://${entry.coverPath}` : '/images/placeholder.jpg'" class="cover-image"
+          alt="封面图片" />
       </div>
-      
+
       <!-- 信息区域 -->
       <div class="info-section">
         <div class="title-section">
           <h1 class="main-title">{{ entry.title }}</h1>
-          
+
           <div v-if="entry.altTitles" class="alt-titles">
             <p class="alt-titles-content">{{ parseAltTitles(entry.altTitles) }}</p>
           </div>
         </div>
-        
+
         <div v-if="entry.tags" class="tags-section">
           <div class="tags-container">
-            <span 
-              v-for="(tag, index) in parseTags(entry.tags)" 
-              :key="index"
-              class="tag"
-            >
+            <span v-for="(tag, index) in parseTags(entry.tags)" :key="index" class="tag">
               {{ tag }}
             </span>
           </div>
         </div>
-        
+
         <!-- 简介 -->
         <div class="description-section">
           <h2 class="section-label">简介</h2>
@@ -66,20 +62,16 @@
             简介不见了捏~
           </div>
         </div>
-        
+
         <!-- 相关链接 -->
         <div class="links-section">
           <h2 class="section-label">相关链接</h2>
           <div v-if="entry.links" class="links-container">
-            <a 
-              v-for="(link, index) in parseLinks(entry.links)" 
-              :key="index"
-              :href="link" 
-              target="_blank" 
-              class="link"
-            >
-              <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            <a v-for="(link, index) in parseLinks(entry.links)" :key="index" :href="link" target="_blank" class="link">
+              <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
               <span class="link-text">{{ formatLink(link) }}</span>
             </a>
@@ -90,11 +82,13 @@
         </div>
       </div>
     </div>
-    
+
     <div v-else class="no-entry">
       <div class="placeholder-box">
-        <svg class="placeholder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <svg class="placeholder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <p>未找到条目信息</p>
       </div>
@@ -103,7 +97,7 @@
 </template>
 
 <script>
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, computed, nextTick } from 'vue';
 
 export default {
   props: {
@@ -115,9 +109,9 @@ export default {
   setup(props) {
     const entry = ref(null);
     const loading = ref(false);
-    const audioRef = ref(null);
+    const audioEl = ref(null);
     const isMuted = ref(false);
-    
+
     const hasMusic = computed(() => {
       return entry.value?.music;
     });
@@ -148,7 +142,7 @@ export default {
         return [links];
       }
     };
-    
+
     // 格式化链接显示
     const formatLink = (link) => {
       try {
@@ -161,30 +155,23 @@ export default {
 
     // 播放音乐
     const playMusic = () => {
-      if (entry.value?.music && !isMuted.value) {
-        audioRef.value = new Audio(entry.value.music);
-        audioRef.value.volume = 0.5;
-        audioRef.value.loop = true;
-        
-        const playPromise = audioRef.value.play();
-        
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            console.error('自动播放失败:', e);
-          });
-        }
-      }
+      if (!audioEl.value || !hasMusic.value) return;
+
+      audioEl.value.src = `file://${entry.value.music}`;
+      audioEl.value.volume = 0.5;
+      audioEl.value.muted = isMuted.value;
+      audioEl.value
+        .play()
+        .catch(e => console.error('播放失败', e));
     };
-    
+
     // 切换静音状态
     const toggleMute = () => {
       if (!hasMusic.value) return;
-      
       isMuted.value = !isMuted.value;
-      
-      if (audioRef.value) {
-        audioRef.value.muted = isMuted.value;
-      }
+      audioEl.value.muted = isMuted.value;
+      // 第一次点击时，如果还没播放过，触发播放
+      if (!audioEl.value.src) playMusic();
     };
 
     // 获取条目详情
@@ -209,22 +196,24 @@ export default {
 
     // 监听entryId变化
     watch(() => props.entryId, fetchEntry, { immediate: true });
-    
+
     // 条目加载完成后播放音乐
-    watch(() => entry.value, (newVal) => {
-      if (newVal && newVal.music) {
-        playMusic();
-      } else {
-        isMuted.value = true;
+    watch(
+      () => entry.value,
+      async (newVal) => {
+        if (newVal && newVal.music) {
+          await nextTick();
+          playMusic();
+        }
       }
-    });
+    );
 
     // 组件卸载时停止音乐
     onMounted(() => {
       return () => {
-        if (audioRef.value) {
-          audioRef.value.pause();
-          audioRef.value = null;
+        if (audioEl.value) {
+          audioEl.value.pause();
+          audioEl.value.src = '';
         }
       };
     });
@@ -238,7 +227,8 @@ export default {
       parseTags,
       parseLinks,
       formatLink,
-      toggleMute
+      toggleMute,
+      audioEl
     };
   }
 }
@@ -302,8 +292,13 @@ export default {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .mute-button svg {
@@ -340,7 +335,8 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  flex: 1 1 auto;    /* 占据剩余空间，并允许放大 */
+  flex: 1 1 auto;
+  /* 占据剩余空间，并允许放大 */
   overflow-y: auto;
 }
 
@@ -470,8 +466,13 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-indicator span {

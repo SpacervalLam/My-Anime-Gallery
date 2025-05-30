@@ -35,20 +35,22 @@ async function createWindow() {
   win.setFullScreen(true);
 
   // 设置安全的内容安全策略
-  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          `default-src 'self' 'unsafe-inline' data:;` +
-          `script-src 'self' 'unsafe-inline';` +
-          `connect-src 'self' http://localhost:3000 ws://localhost:3000;` +
-          `style-src 'self' 'unsafe-inline';` +
-          `img-src 'self' data: file: blob:`
-        ]
-      }
-    });
+win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      'Content-Security-Policy': [`
+        default-src 'self' 'unsafe-inline' data:;
+        script-src  'self' 'unsafe-inline';
+        connect-src 'self' http://localhost:3000 ws://localhost:3000;
+        style-src   'self' 'unsafe-inline';
+        img-src     'self' data: file: blob:;
+        media-src   'self' data: file: blob:;
+      `.replace(/\s+/g,' ') ]
+    }
   });
+});
+
   // 开发模式下
   win.loadURL(
     process.env.NODE_ENV === 'production'
@@ -116,6 +118,40 @@ ipcMain.handle('image:saveCropped', async (event, { dataURL, filename }) => {
     throw error;
   }
 });
+
+// === 1. 选择本地音乐文件 ===
+ipcMain.handle('dialog:openMusic', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: '选择背景音乐',
+    filters: [
+      { name: '音频文件', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }
+    ],
+    properties: ['openFile']
+  });
+  if (canceled) return null;
+  return filePaths[0];
+});
+
+// === 2. 将选中的音乐文件拷贝到用户数据目录 ===
+ipcMain.handle('music:import', async (event, srcPath) => {
+  try {
+    const musicDir = path.join(app.getPath('userData'), 'music');
+    // 确保目录存在
+    if (!fs.existsSync(musicDir)) {
+      fs.mkdirSync(musicDir, { recursive: true });
+    }
+    // 用时间戳+原文件名避免冲突
+    const fileName = `${Date.now()}_${path.basename(srcPath)}`;
+    const destPath = path.join(musicDir, fileName);
+    await fs.promises.copyFile(srcPath, destPath);
+    console.log('音乐导入成功:', destPath);
+    return destPath;
+  } catch (err) {
+    console.error('音乐导入失败:', err);
+    throw err;
+  }
+});
+
 
 // 保存新条目
 ipcMain.handle('db:saveEntry', async (event, entry) => {

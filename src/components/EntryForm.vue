@@ -384,14 +384,12 @@ async function selectImage() {
 }
 
 async function selectMusic() {
-  const filePath = await window.electronAPI.openFile({
-    filters: [
-      { name: '音频文件', extensions: ['mp3', 'wav', 'ogg', 'm4a'] }
-    ]
-  });
-  if (filePath) {
-    musicPath.value = filePath;
-  }
+  const filePath = await window.electronAPI.openMusic();
+  if (!filePath) return;
+
+  // 2) 拷贝到 userData/music 并拿到新的路径
+  const importedPath = await window.electronAPI.importMusic(filePath);
+  musicPath.value = importedPath;
 }
 
 function initCropper() {

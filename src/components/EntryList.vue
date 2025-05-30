@@ -11,28 +11,65 @@
           </svg>
           我的收藏库
         </h2>
-        <button @click="openForm" class="add-button">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 6V18M18 12H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          添加新条目
-        </button>
+
+        <div class="header-actions">
+          <!-- 视图切换按钮 -->
+          <button @click="toggleView" class="view-toggle" :title="isCompactView ? '切换到大视图' : '切换到小视图'">
+            <svg v-if="isCompactView" class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6H10V12H4V6Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M14 6H20V12H14V6Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M4 14H10V20H4V14Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M14 14H20V20H14V14Z" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+            <svg v-else class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 4H10V10H4V4Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M14 4H20V10H14V4Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M4 14H10V20H4V14Z" stroke="currentColor" stroke-width="1.5" />
+              <path d="M14 14H20V20H14V14Z" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </button>
+
+          <button @click="openForm" class="add-button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 6V18M18 12H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            添加新条目
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- 标签筛选导航 -->
     <div class="tags-filter">
-      <svg class="filter-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" @click="isTagsExpanded = !isTagsExpanded">
-        <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      <div class="tags-container" v-show="isTagsExpanded">
-        <button @click="selectAll" :class="['tag-button', { active: selectedTags.length === 0 }]">
-          全部
-        </button>
-        <button v-for="tag in allTags" :key="tag" @click="toggleTag(tag)"
-          :class="['tag-button', { active: selectedTags.includes(tag) }]">
-          {{ tag }}
-        </button>
+      <div class="filter-header" @click="isTagsExpanded = !isTagsExpanded">
+        <svg class="filter-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <div class="filter-info">
+          <span class="filter-text">标签筛选</span>
+          <span class="filter-status">{{ isTagsExpanded ? '点击收起' : '点击展开' }}</span>
+        </div>
+      </div>
+
+      <transition name="slide-fade">
+        <div class="tags-container" v-show="isTagsExpanded">
+          <button @click="selectAll" :class="['tag-button', { active: selectedTags.length === 0 }]">
+            全部
+          </button>
+          <button v-for="tag in allTags" :key="tag" @click="toggleTag(tag)"
+            :class="['tag-button', { active: selectedTags.includes(tag) }]">
+            {{ tag }}
+          </button>
+        </div>
+      </transition>
+
+      <div class="selected-tags" v-if="selectedTags.length > 0 && !isTagsExpanded">
+        <span class="selected-label">已选:</span>
+        <div class="selected-container">
+          <span v-for="tag in selectedTags" :key="tag" class="selected-tag">
+            {{ tag }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -57,19 +94,18 @@
       </div>
     </div>
 
-    <!-- 条目列表 - 使用新的滑动容器 -->
-    <div v-else class="entries-container">
+    <!-- 条目列表 -->
+    <div v-else class="entries-container" :class="{ 'compact-view': isCompactView }">
       <div v-for="item in filteredEntries()" :key="item.id" class="swipe-container"
         @pointerdown="handleStart($event, item.id)" @pointermove="handleMove($event, item.id)"
         @pointerup="handleEnd(item.id)" @pointercancel="handleEnd(item.id)">
 
         <!-- 滑动内容 -->
-        <div class="swipe-content" :style="{ transform: `translateX(${swipePositions[item.id] || 0}px)` }"
-          @click="handleContentClick(item.id)">
+        <div class="swipe-content" :style="{ transform: `translateX(${swipePositions[item.id] || 0}px)` }">
           <div class="entry-card">
             <div class="entry-content">
-              <!-- 封面图片 -->
-              <div class="cover-container">
+              <!-- 封面图片 - 修复宽高比问题 -->
+              <div class="cover-container" :class="{ 'compact': isCompactView }">
                 <img :src="`file://${item.coverPath}`" alt="封面" class="cover-image"
                   v-if="item.coverPath && item.coverPath !== ''" />
                 <div class="cover-placeholder" v-else>
@@ -102,7 +138,7 @@
           </div>
         </div>
 
-        <!-- 操作按钮 - 固定在右侧 -->
+        <!-- 操作按钮 -->
         <div class="action-buttons">
           <button @click="edit(item)" class="action-button edit-button">
             <svg class="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -146,6 +182,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 
+// 添加视图状态
+const isCompactView = ref(false);
+
+// 切换视图函数
+function toggleView() {
+  isCompactView.value = !isCompactView.value;
+}
+
 const entries = ref([]);
 const allTags = ref([]);
 const selectedTags = ref([]);
@@ -153,35 +197,13 @@ const swipePositions = ref({});
 const startX = ref(0);
 const isDragging = ref(false);
 const currentDragId = ref(null);
-const openCardId = ref(null); // 跟踪当前打开的卡片
-const fixedStates = ref({}); // 跟踪固定状态的卡片
-const isTagsExpanded = ref(true); // 控制标签筛选模块展开状态
-
-// 处理内容点击 - 点击滑块内容时复位
-// function handleContentClick(id) {
-//   if (swipePositions.value[id] < 0) {
-//     swipePositions.value[id] = 0;
-//     fixedStates.value[id] = false;
-//     openCardId.value = null;
-//   }
-// }
-
-// 处理外部点击
-function handleClickOutside(e) {
-  if (openCardId.value === null) return;
-  const openEl = document.querySelector(`.swipe-container[data-id="${openCardId.value}"]`);
-  // 如果点击的不是当前打开的条目，则复位
-  if (openEl && !openEl.contains(e.target)) {
-    swipePositions.value[openCardId.value] = 0;
-    fixedStates.value[openCardId.value] = false;
-    openCardId.value = null;
-  }
-}
+const openCardId = ref(null);
+const fixedStates = ref({});
+const isTagsExpanded = ref(false); // 默认折叠标签区域
 
 function handleStart(e, id) {
   e.preventDefault();
 
-  // 关闭其他打开的卡片
   if (openCardId.value && openCardId.value !== id) {
     swipePositions.value[openCardId.value] = 0;
     fixedStates.value[openCardId.value] = false;
@@ -194,7 +216,6 @@ function handleStart(e, id) {
 }
 
 function handleMove(e, id) {
-  // 如果卡片已固定，完全阻止拖动
   if (fixedStates.value[id]) {
     e.preventDefault();
     return;
@@ -203,7 +224,6 @@ function handleMove(e, id) {
   if (!isDragging.value || currentDragId.value !== id) return;
 
   const diff = e.clientX - startX.value;
-  // 限制只能向左滑动
   swipePositions.value[id] = Math.min(Math.max(diff, -140), 0);
 }
 
@@ -217,12 +237,10 @@ function handleEnd(id) {
   const threshold = -100;
 
   if (pos < threshold) {
-    // 超过阈值，回弹到-115
     swipePositions.value[id] = -115;
     fixedStates.value[id] = false;
     openCardId.value = null;
   } else {
-    // 未达阈值，回弹到0
     swipePositions.value[id] = 0;
     fixedStates.value[id] = false;
     openCardId.value = null;
@@ -270,227 +288,81 @@ async function remove(id) {
 }
 
 function edit(item) {
-  // 编辑前复位卡片
   swipePositions.value[item.id] = 0;
   openCardId.value = null;
-
   window.dispatchEvent(new CustomEvent('edit-entry', { detail: item }));
 }
 
 function openForm() {
   window.dispatchEvent(new CustomEvent('open-form'));
 }
+
+function handleClickOutside(e) {
+  if (openCardId.value === null) return;
+  const openEl = document.querySelector(`.swipe-container[data-id="${openCardId.value}"]`);
+  if (openEl && !openEl.contains(e.target)) {
+    swipePositions.value[openCardId.value] = 0;
+    fixedStates.value[openCardId.value] = false;
+    openCardId.value = null;
+  }
+}
 </script>
 
 <style scoped>
-.gallery-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.gallery-header {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  border-radius: 16px;
-  margin-bottom: 24px;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-}
-
-.gallery-title {
-  color: white;
-  font-size: 1.8rem;
-  font-weight: 700;
+/* 添加头部操作区域样式 */
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0;
+  gap: 10px;
 }
 
-.icon {
-  width: 28px;
-  height: 28px;
-}
-
-.add-button {
+.view-toggle {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
   color: white;
   border: none;
-  border-radius: 12px;
-  padding: 12px 20px;
-  font-weight: 600;
+  border-radius: 10px;
+  padding: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   transition: all 0.3s ease;
 }
 
-.add-button:hover {
+.view-toggle:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
 }
 
-.tags-filter {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+.view-toggle .icon {
+  width: 20px;
+  height: 20px;
 }
 
-
-
-.filter-icon {
-  width: 24px;
-  height: 24px;
-  color: #4b5563;
-  margin-right: 16px;
-}
-
-
-
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-.tag-button {
-  background: #f3f4f6;
-  color: #4b5563;
-  border: none;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  line-height: 1.2;
-  vertical-align: middle;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tag-button.active {
-  background: #6366f1;
-  color: white;
-}
-
-.empty-state {
-  background: white;
-  border-radius: 16px;
-  padding: 40px 20px;
-  text-align: center;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-}
-
-.empty-content {
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-.empty-icon {
-  width: 80px;
-  height: 80px;
-  color: #9ca3af;
-  margin: 0 auto 20px;
-}
-
-.empty-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 8px;
-}
-
-.empty-text {
-  color: #6b7280;
-  margin-bottom: 24px;
-}
-
-.empty-button {
-  background: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 24px;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.empty-button:hover {
-  background: #4f46e5;
-  transform: translateY(-2px);
-}
-
-.entries-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-}
-
-/* 新的滑动容器 */
-.swipe-container {
-  position: relative;
-  overflow: hidden;
-  border-radius: 16px;
-  height: 100%;
-  background: #f9fafb;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.swipe-content {
-  position: relative;
-  z-index: 2;
-  background: white;
-  border-radius: 16px;
-  transition: transform 0.3s ease;
-  height: 100%;
-}
-
-.entry-card {
-  height: 100%;
-}
-
-.entry-content {
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  height: 100%;
-}
-
+/* 修复封面图片比例问题 */
 .cover-container {
-  height: 180px;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  /* 保持2:1的宽高比 */
+  aspect-ratio: 2 / 1;
+  width: 100%;
+}
+
+.cover-container.compact {
+  aspect-ratio: 2 / 1;
+  /* 紧凑视图下也保持相同比例 */
 }
 
 .cover-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  aspect-ratio: 2 / 1; /* 宽:高 = 2:1，高度就是宽度的一半 */
+  height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
@@ -505,8 +377,321 @@ function openForm() {
 }
 
 .placeholder-icon {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
+}
+
+/* 紧凑视图样式 */
+.entries-container.compact-view {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.compact-view .swipe-container {
+  border-radius: 12px;
+  height: 240px;
+}
+
+.compact-view .entry-title {
+  font-size: 0.95rem;
+  -webkit-line-clamp: 2;
+  margin-bottom: 6px;
+}
+
+.compact-view .tag {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.compact-view .no-tags {
+  font-size: 0.75rem;
+}
+
+.compact-view .action-buttons {
+  width: 100px;
+}
+
+.compact-view .action-button {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+
+.compact-view .button-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* 添加过渡效果 */
+.swipe-container,
+.cover-container,
+.entry-title,
+.tag,
+.action-button,
+.button-icon {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 其余原有样式保持不变... */
+.gallery-container {
+  padding: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.gallery-container * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* 禁止图片拖拽 */
+.gallery-container img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+.gallery-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+}
+
+.gallery-title {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.icon {
+  width: 24px;
+  height: 24px;
+}
+
+.add-button {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.add-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.tags-filter {
+  background: white;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.filter-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.filter-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.filter-text {
+  font-weight: 600;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.filter-status {
+  color: #6366f1;
+  font-size: 0.85rem;
+  background: #eef2ff;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
+.filter-icon {
+  width: 22px;
+  height: 22px;
+  color: #4b5563;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.tag-button {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: none;
+  border-radius: 18px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag-button.active {
+  background: #6366f1;
+  color: white;
+}
+
+.selected-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.selected-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.selected-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selected-tag {
+  background: #e0e7ff;
+  color: #4f46e5;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.empty-state {
+  background: white;
+  border-radius: 14px;
+  padding: 30px 16px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.empty-content {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.empty-icon {
+  width: 70px;
+  height: 70px;
+  color: #9ca3af;
+  margin: 0 auto 16px;
+}
+
+.empty-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.empty-text {
+  color: #6b7280;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.empty-button {
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.empty-button:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+}
+
+.entries-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  height: 100%;
+  background: #f9fafb;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.swipe-content {
+  position: relative;
+  z-index: 2;
+  background: white;
+  border-radius: 14px;
+  transition: transform 0.3s ease;
+  height: 100%;
+}
+
+.entry-card {
+  height: 100%;
+}
+
+.entry-content {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  height: 100%;
 }
 
 .info-container {
@@ -514,74 +699,37 @@ function openForm() {
 }
 
 .entry-title {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #1f2937;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  line-height: 1.3;
 }
 
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  min-height: 30px;
+  gap: 6px;
+  min-height: 26px;
 }
 
 .tag {
   background: #e0e7ff;
   color: #4f46e5;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  padding: 3px 10px;
+  border-radius: 16px;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
 .no-tags {
   color: #9ca3af;
-  font-size: 0.9rem;
-  font-style: italic;
-}
-
-.links-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.link-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.link-icon {
-  width: 16px;
-  height: 16px;
-  color: #4f46e5;
-  flex-shrink: 0;
-}
-
-.link-text {
-  color: #4f46e5;
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.link-text:hover {
-  text-decoration: underline;
-}
-
-.no-links {
-  color: #9ca3af;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-style: italic;
 }
 
@@ -590,12 +738,12 @@ function openForm() {
   top: 0;
   right: 0;
   height: 100%;
-  width: 120px;
+  width: 110px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 12px;
-  padding: 0 16px;
+  gap: 10px;
+  padding: 0 14px;
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   z-index: 1;
 }
@@ -604,14 +752,15 @@ function openForm() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
   border: none;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 100%;
+  font-size: 0.85rem;
 }
 
 .edit-button {
@@ -635,8 +784,8 @@ function openForm() {
 }
 
 .button-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .swipe-hint {
@@ -646,16 +795,16 @@ function openForm() {
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 14px;
   background: #f3f4f6;
   color: #9ca3af;
-  font-size: 0.9rem;
-  border-radius: 16px;
+  font-size: 0.85rem;
+  border-radius: 14px;
   z-index: 0;
   opacity: 0;
   animation: fadeHint 3s infinite;
   pointer-events: none;
-  width: 120px;
+  width: 110px;
 }
 
 @keyframes fadeHint {
@@ -672,24 +821,53 @@ function openForm() {
 }
 
 .hint-icon {
-  width: 20px;
-  height: 20px;
-  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+
+/* 标签筛选动画 */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
 }
 
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
   }
 
   .entries-container {
     grid-template-columns: 1fr;
   }
 
-  .action-buttons {
-    width: 100px;
+  .gallery-title {
+    font-size: 1.3rem;
+  }
+
+  .add-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tags-container {
+    gap: 6px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

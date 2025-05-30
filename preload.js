@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
   saveCropped: (data) => ipcRenderer.invoke('image:saveCropped', data),
   saveEntry: (entry) => ipcRenderer.invoke('db:saveEntry', entry),
+  openMusic: () => ipcRenderer.invoke('dialog:openMusic'),
+  importMusic: (srcPath) => ipcRenderer.invoke('music:import', srcPath),
   getEntries: () => ipcRenderer.invoke('db:getEntries'),
   getEntryById: (id) => ipcRenderer.invoke('get-entry-by-id', id),
   deleteEntry: (id) => ipcRenderer.invoke('db:deleteEntry', id),

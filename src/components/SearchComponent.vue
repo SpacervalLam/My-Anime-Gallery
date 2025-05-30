@@ -2,38 +2,25 @@
   <div class="search-container">
     <div class="search-wrapper">
       <div class="search-input-container">
-        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <input
-          v-model="searchQuery"
-          placeholder="搜索动画标题..."
-          class="search-input"
-          @input="onInput"
-          @focus="isFocused = true"
-          @blur="isFocused = false"
-        />
+        <input v-model="searchQuery" placeholder="搜索动画标题..." class="search-input" @input="onInput"
+          @focus="isFocused = true" @blur="isFocused = false" />
         <div v-if="searchQuery" class="clear-btn" @click="clearSearch">
-          <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </div>
       </div>
-      
-      <div v-if="suggestions.length" class="suggestion-list" :class="{'active': isFocused || suggestions.length}">
-        <div
-          v-for="item in suggestions"
-          :key="item.id"
-          class="suggestion-item"
-          @click="selectSuggestion(item)"
-        >
+
+      <div v-if="suggestions.length" class="suggestion-list" :class="{ 'active': isFocused || suggestions.length }">
+        <div v-for="item in suggestions" :key="item.id" class="suggestion-item" @click="selectSuggestion(item)">
           <div class="suggestion-image-wrapper">
-            <img
-              v-if="item.coverPath"
-              :src="`file://${item.coverPath}`"
-              class="suggestion-image"
-              alt="封面"
-            />
+            <img v-if="item.coverPath" :src="`file://${item.coverPath}`" class="suggestion-image" alt="封面" />
             <div v-else class="suggestion-image placeholder"></div>
           </div>
           <div class="suggestion-content">
@@ -57,7 +44,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const emit = defineEmits(['result-click']);
 const searchQuery = ref('');
@@ -65,8 +52,21 @@ const entries = ref([]);
 const suggestions = ref([]);
 const isFocused = ref(false);
 
+async function loadEntries() {
+  entries.value = await window.electronAPI.getEntries();
+  // 如果当前有关键字，立即刷新一次建议列表
+  if (searchQuery.value) onInput();
+}
+
 onMounted(async () => {
   entries.value = await window.electronAPI.getEntries();
+  window.addEventListener('entry-saved', loadEntries);
+  window.addEventListener('entry-deleted', loadEntries);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('entry-saved', loadEntries);
+  window.removeEventListener('entry-deleted', loadEntries);
 });
 
 function parseAltTitles(altTitles) {
@@ -96,9 +96,10 @@ function onInput() {
     .filter(e => {
       const title = (e.title || '').toLowerCase();
       const alt = e.altTitles ? JSON.parse(e.altTitles) : [];
-      return title.includes(q) || alt.some(t => t.toLowerCase().includes(q));
+      return title.includes(q)
+        || alt.some(t => t.toLowerCase().includes(q));
     })
-    .slice(0, 5);
+    .slice(0, 10);
 }
 
 function selectSuggestion(item) {
