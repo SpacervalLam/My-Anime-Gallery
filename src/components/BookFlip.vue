@@ -222,7 +222,11 @@ onMounted(() => {
   wrapper.value.style.width = `${width + 40}px`;
 
   window.addEventListener('resize', handleResize);
-  window.addEventListener('open-form', openModal);
+  window.addEventListener('open-form', (e) => {
+    // 清空上一次的编辑数据
+    editingEntry.value = null;
+    openModal();
+  });
   window.addEventListener('close-form', closeModal);
   window.addEventListener('edit-entry', (e) => openEditModal(e.detail));
 });
@@ -231,7 +235,10 @@ onMounted(() => {
 // 组件卸载前移除事件监听器
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
-  window.removeEventListener('open-form', openModal);
+  window.removeEventListener('open-form', (e) => {
+    editingEntry.value = null;
+    openModal();
+  });
   window.removeEventListener('close-form', closeModal);
   window.removeEventListener('start-edit-entry', openEditModal);
   document.removeEventListener('keydown', handleKeydown);

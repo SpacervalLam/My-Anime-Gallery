@@ -329,7 +329,11 @@ function removeLink(index) {
 }
 
 watch(() => props.initialEntry, entry => {
-  if (!entry) return;
+  if (!entry) {
+    resetForm();
+    formState.value.isEditing = false;
+    return;
+  }
   console.log('[EntryForm] init form with', entry.id);
   originalCoverPath.value = entry.coverPath;
   originalMusicPath.value = entry.music || null;
