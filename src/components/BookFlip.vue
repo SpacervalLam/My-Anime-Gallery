@@ -7,13 +7,8 @@
       </div>
     </div>
 
-    <div
-      class="book-container"
-      ref="container"
-      :class="{ blurred: showModal }"
-      @mousedown.capture="handleMouseDown"
-      @contextmenu.prevent="handleContextMenu"
-    >
+    <div class="book-container" ref="container" :class="{ blurred: showModal }" @mousedown.capture="handleMouseDown"
+      @contextmenu.prevent="handleContextMenu">
       <div class="page cover front" @contextmenu.prevent="flipPageNext">
         <div class="cover-content">
           <div class="title">My Anime Journal</div>
@@ -31,11 +26,27 @@
 
       <div class="page first-page inner">
         <div class="content-page">
-          <SearchComponent @result-click="openEntry"/>
+          <SearchComponent @result-click="openEntryDetail" />
+        </div>
+      </div>
+
+      <!-- 新增详情页 -->
+      <div class="page inner">
+        <div class="content-page">
+          <EntryDetail :entryId="currentEntryId" />
         </div>
       </div>
 
       <div class="page inner">
+        <div class="content-page">
+          <div class="single-page-content">
+            <div class="additional-content">更多内容区域1</div>
+            <div class="additional-content">更多内容区域2</div>
+          </div>
+        </div>
+      </div>
+
+            <div class="page inner">
         <div class="content-page">
           <div class="single-page-content">
             <div class="additional-content">更多内容区域1</div>
@@ -71,10 +82,16 @@ const container = ref(null);
 const showModal = ref(false);
 const pageFlip = ref(null);
 const originalOverflow = ref('');
+const currentEntryId = ref(null); // 当前显示的条目ID
 
-// 打开条目详情模态框
-const openEntry = (item) => {
-  window.dispatchEvent(new CustomEvent('edit-entry', { detail: item }));
+// 打开条目详情页并翻页
+const openEntryDetail = (entryId) => {
+  currentEntryId.value = entryId;
+
+  // 翻到详情页（第3页，索引为3）
+  if (pageFlip.value) {
+    pageFlip.value.flip(3);
+  }
 };
 
 // 计算书本的尺寸以适应窗口大小
@@ -195,13 +212,20 @@ onMounted(() => {
   window.addEventListener('resize', handleResize);
   window.addEventListener('open-form', openModal);
   window.addEventListener('close-form', closeModal);
+  window.addEventListener('edit-entry', (e) => openEditModal(e.detail));
 });
 
 // 组件卸载前移除事件监听器
+const openEditModal = (entry) => {
+  currentEntryId.value = entry.id;
+  openModal();
+};
+
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   window.removeEventListener('open-form', openModal);
   window.removeEventListener('close-form', closeModal);
+  window.removeEventListener('edit-entry', openEditModal);
   document.removeEventListener('keydown', handleKeydown);
 });
 </script>
@@ -269,6 +293,7 @@ body.modal-open .pf__page-cover-back {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
 .modal-content::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
@@ -369,9 +394,11 @@ body.modal-open .pf__page-cover-back {
   0% {
     opacity: 0.6;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     opacity: 0.6;
   }

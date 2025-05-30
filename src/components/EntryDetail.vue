@@ -1,63 +1,568 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg w-3/4 max-w-4xl max-h-[90vh] overflow-y-auto">
-      <div class="p-6">
-        <div class="flex">
-          <div class="w-1/3">
-            <img :src="entry.coverPath" class="w-full rounded-lg" alt="Cover Image">
+  <div class="entry-detail-page">
+    <div v-if="loading" class="loading-indicator">
+      <div class="spinner"></div>
+      <span>加载中...</span>
+    </div>
+    
+    <div v-else-if="entry" class="entry-detail-content">
+      <!-- 静音按钮 -->
+      <div class="audio-control">
+        <button 
+          @click="toggleMute" 
+          class="mute-button" 
+          :class="{ rotating: !isMuted, disabled: !hasMusic }"
+          :disabled="!hasMusic"
+          :title="hasMusic ? (isMuted ? '取消静音' : '静音') : '无背景音乐'"
+        >
+          <svg v-if="!isMuted" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m-2.828-9.9a9 9 0 012.728-2.728"></path>
+          </svg>
+          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- 封面图片 -->
+      <div class="cover-container">
+        <img 
+          :src="entry.coverPath ? `file://${entry.coverPath}` : '/images/placeholder.jpg'" 
+          class="cover-image" 
+          alt="封面图片"
+        />
+      </div>
+      
+      <!-- 信息区域 -->
+      <div class="info-section">
+        <div class="title-section">
+          <h1 class="main-title">{{ entry.title }}</h1>
+          
+          <div v-if="entry.altTitles" class="alt-titles">
+            <p class="alt-titles-content">{{ parseAltTitles(entry.altTitles) }}</p>
           </div>
-          <div class="w-2/3 pl-6">
-            <h1 class="text-2xl font-bold mb-2">{{ entry.title }}</h1>
-            <div v-if="entry.altTitles" class="mb-4">
-              <h2 class="text-lg font-semibold">其他标题</h2>
-              <p class="text-gray-600">{{ entry.altTitles }}</p>
-            </div>
-            <div v-if="entry.description" class="mb-4">
-              <h2 class="text-lg font-semibold">简介</h2>
-              <p class="text-gray-600">{{ entry.description }}</p>
-            </div>
-            <div v-if="entry.tags" class="mb-4">
-              <h2 class="text-lg font-semibold">标签</h2>
-              <p class="text-gray-600">{{ entry.tags }}</p>
-            </div>
-            <div v-if="entry.link" class="mb-4">
-              <h2 class="text-lg font-semibold">相关链接</h2>
-              <a :href="entry.link" target="_blank" class="text-blue-500 hover:underline">{{ entry.link }}</a>
-            </div>
-            <button @click="playMusic" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-              播放背景音乐
-            </button>
+        </div>
+        
+        <div v-if="entry.tags" class="tags-section">
+          <div class="tags-container">
+            <span 
+              v-for="(tag, index) in parseTags(entry.tags)" 
+              :key="index"
+              class="tag"
+            >
+              {{ tag }}
+            </span>
+          </div>
+        </div>
+        
+        <!-- 简介 -->
+        <div class="description-section">
+          <h2 class="section-label">简介</h2>
+          <div v-if="entry.description" class="description-content">
+            {{ entry.description }}
+          </div>
+          <div v-else class="placeholder-message">
+            简介不见了捏~
+          </div>
+        </div>
+        
+        <!-- 相关链接 -->
+        <div class="links-section">
+          <h2 class="section-label">相关链接</h2>
+          <div v-if="entry.links" class="links-container">
+            <a 
+              v-for="(link, index) in parseLinks(entry.links)" 
+              :key="index"
+              :href="link" 
+              target="_blank" 
+              class="link"
+            >
+              <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+              </svg>
+              <span class="link-text">{{ formatLink(link) }}</span>
+            </a>
+          </div>
+          <div v-else class="placeholder-message">
+            链接走丢了哦~
           </div>
         </div>
       </div>
-      <div class="p-4 border-t border-gray-200 flex justify-end">
-        <button @click="$emit('close')" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-          关闭
-        </button>
+    </div>
+    
+    <div v-else class="no-entry">
+      <div class="placeholder-box">
+        <svg class="placeholder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <p>未找到条目信息</p>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { ref, watch, onMounted, computed } from 'vue';
+
 export default {
   props: {
-    entry: {
-      type: Object,
+    entryId: {
+      type: Number,
       required: true
     }
   },
-  methods: {
-    playMusic() {
-      if (this.entry.music) {
-        const audio = new Audio(this.entry.music);
-        audio.play();
+  setup(props) {
+    const entry = ref(null);
+    const loading = ref(false);
+    const audioRef = ref(null);
+    const isMuted = ref(false);
+    
+    const hasMusic = computed(() => {
+      return entry.value?.music;
+    });
+
+    // 解析其他标题
+    const parseAltTitles = (altTitles) => {
+      try {
+        return JSON.parse(altTitles).join(' / ');
+      } catch {
+        return altTitles;
       }
-    }
+    };
+
+    // 解析标签
+    const parseTags = (tags) => {
+      try {
+        return JSON.parse(tags);
+      } catch {
+        return [tags];
+      }
+    };
+
+    // 解析链接
+    const parseLinks = (links) => {
+      try {
+        return JSON.parse(links);
+      } catch {
+        return [links];
+      }
+    };
+    
+    // 格式化链接显示
+    const formatLink = (link) => {
+      try {
+        const url = new URL(link);
+        return `${url.hostname}${url.pathname !== '/' ? url.pathname : ''}`;
+      } catch {
+        return link;
+      }
+    };
+
+    // 播放音乐
+    const playMusic = () => {
+      if (entry.value?.music && !isMuted.value) {
+        audioRef.value = new Audio(entry.value.music);
+        audioRef.value.volume = 0.5;
+        audioRef.value.loop = true;
+        
+        const playPromise = audioRef.value.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            console.error('自动播放失败:', e);
+          });
+        }
+      }
+    };
+    
+    // 切换静音状态
+    const toggleMute = () => {
+      if (!hasMusic.value) return;
+      
+      isMuted.value = !isMuted.value;
+      
+      if (audioRef.value) {
+        audioRef.value.muted = isMuted.value;
+      }
+    };
+
+    // 获取条目详情
+    const fetchEntry = async () => {
+      if (!props.entryId) return;
+
+      loading.value = true;
+      try {
+        if (window.electronAPI && window.electronAPI.getEntryById) {
+          entry.value = await window.electronAPI.getEntryById(props.entryId);
+        } else {
+          console.error('electronAPI.getEntryById is not defined');
+          entry.value = null;
+        }
+      } catch (error) {
+        console.error('获取条目详情失败:', error);
+        entry.value = null;
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // 监听entryId变化
+    watch(() => props.entryId, fetchEntry, { immediate: true });
+    
+    // 条目加载完成后播放音乐
+    watch(() => entry.value, (newVal) => {
+      if (newVal && newVal.music) {
+        playMusic();
+      } else {
+        isMuted.value = true;
+      }
+    });
+
+    // 组件卸载时停止音乐
+    onMounted(() => {
+      return () => {
+        if (audioRef.value) {
+          audioRef.value.pause();
+          audioRef.value = null;
+        }
+      };
+    });
+
+    return {
+      entry,
+      loading,
+      isMuted,
+      hasMusic,
+      parseAltTitles,
+      parseTags,
+      parseLinks,
+      formatLink,
+      toggleMute
+    };
   }
 }
 </script>
 
 <style scoped>
-/* 添加必要的样式 */
+.entry-detail-page {
+  height: 100%;
+  overflow-y: auto;
+  padding: 15px;
+  background: linear-gradient(135deg, #f9f7ff 0%, #e6f3ff 100%);
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  user-select: none;
+}
+
+.entry-detail-content {
+  height: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.audio-control {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 10;
+}
+
+.mute-button {
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(123, 97, 255, 0.25);
+  transition: all 0.25s ease;
+}
+
+.mute-button:hover:not(.disabled) {
+  background: white;
+  transform: scale(1.08);
+  box-shadow: 0 5px 14px rgba(123, 97, 255, 0.35);
+}
+
+.mute-button.rotating {
+  animation: rotate 4s linear infinite;
+}
+
+.mute-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.mute-button svg {
+  stroke-width: 1.5;
+  color: #7b61ff;
+  width: 20px;
+  height: 20px;
+}
+
+/* 封面图片 */
+.cover-container {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+  aspect-ratio: 2/1;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 信息区域 */
+.info-section {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1 1 auto;    /* 占据剩余空间，并允许放大 */
+  overflow-y: auto;
+}
+
+.title-section {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+.main-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.alt-titles-content {
+  font-size: 0.95rem;
+  color: #64748b;
+  line-height: 1.5;
+  font-style: italic;
+  padding: 0 15px;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tag {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  padding: 6px 15px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 3px 6px rgba(139, 92, 246, 0.2);
+  transition: transform 0.2s;
+}
+
+.tag:hover {
+  transform: translateY(-2px);
+}
+
+.section-label {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #7b61ff;
+  margin: 0 0 12px 0;
+  padding-left: 8px;
+  border-left: 3px solid #7b61ff;
+}
+
+.description-content {
+  font-size: 0.95rem;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-line;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  user-select: text;
+}
+
+.links-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+  user-select: text;
+}
+
+.link:hover {
+  background: #eef2ff;
+  transform: translateX(5px);
+  border-color: #c7d2fe;
+}
+
+.link-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+  color: #7b61ff;
+}
+
+.link-text {
+  color: #4f46e5;
+  font-weight: 600;
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-grow: 1;
+}
+
+/* 加载状态 */
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  gap: 15px;
+}
+
+.spinner {
+  width: 45px;
+  height: 45px;
+  border: 3px solid rgba(123, 97, 255, 0.2);
+  border-top: 3px solid #7b61ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-indicator span {
+  font-size: 1.1rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* 默认消息样式 */
+.placeholder-message {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.98rem;
+  font-style: italic;
+  border: 1px dashed #cbd5e1;
+}
+
+/* 空状态样式 */
+.no-entry {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.placeholder-box {
+  text-align: center;
+  max-width: 360px;
+  padding: 30px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+}
+
+.placeholder-icon {
+  width: 40px;
+  height: 40px;
+  display: block;
+  margin: 0 auto 18px auto;
+  color: #cbd5e1;
+}
+
+.placeholder-box p {
+  font-size: 1.15rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* 响应式调整 */
+/* @media (max-width: 768px) {
+  .entry-detail-page {
+    padding: 12px;
+  }
+  
+  .info-section {
+    padding: 18px;
+  }
+  
+  .main-title {
+    font-size: 1.6rem;
+  }
+  
+  .cover-container {
+    border-radius: 12px;
+  }
+  
+  .mute-button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-title {
+    font-size: 1.4rem;
+  }
+  
+  .section-label {
+    font-size: 1.05rem;
+  }
+  
+  .description-content {
+    font-size: 0.9rem;
+    padding: 14px;
+  }
+  
+  .placeholder-box {
+    padding: 20px;
+  }
+} */
 </style>

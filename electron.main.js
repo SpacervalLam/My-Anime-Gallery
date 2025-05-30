@@ -92,23 +92,24 @@ ipcMain.handle('image:saveCropped', async (event, { dataURL, filename }) => {
   try {
     const base64Data = dataURL.replace(/^data:image\/[a-z]+;base64,/, '');
     const savePath = path.join(app.getPath('userData'), 'covers');
-    
+
     // 确保目录存在
     if (!fs.existsSync(savePath)) {
       fs.mkdirSync(savePath, { recursive: true });
     }
-    
+
     const filePath = path.join(savePath, filename);
     console.log('保存图片到:', filePath);
-    
+
     // 写入文件
     fs.writeFileSync(filePath, base64Data, 'base64');
-    
+
     // 验证文件是否写入成功
     if (!fs.existsSync(filePath)) {
       throw new Error('文件保存失败');
     }
-    
+
+    console.log('图片保存成功:', filePath);
     return filePath;
   } catch (error) {
     console.error('保存图片失败:', error);
@@ -121,13 +122,43 @@ ipcMain.handle('db:saveEntry', async (event, entry) => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   const newEntry = repo.create(entry);
   await repo.save(newEntry);
+  console.log('保存条目成功:', newEntry);
   return newEntry;
 });
+
 
 // 获取所有条目
 ipcMain.handle('db:getEntries', async () => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   return await repo.find({ order: { id: 'DESC' } });
+});
+
+// 获取特定条目 - 修改为使用 AppDataSource
+ipcMain.handle('get-entry-by-id', async (event, id) => {
+  try {
+    // 使用 AppDataSource 而不是 getConnection()
+    const repo = AppDataSource.getRepository('AnimeEntry');
+    const entry = await repo.findOne({ where: { id } });
+
+    if (entry) {
+      console.log('获取条目成功:', {
+        id: entry.id,
+        title: entry.title,
+        coverPath: entry.coverPath
+      });
+    } else {
+      console.log('未找到条目，ID:', id);
+    }
+
+    return entry;
+  } catch (error) {
+    console.error('获取条目详情错误:', {
+      id,
+      errorMessage: error.message,
+      stack: error.stack
+    });
+    return null;
+  }
 });
 
 // 删除条目
@@ -144,6 +175,7 @@ ipcMain.handle('db:deleteEntry', async (event, id) => {
     }
   }
   await repo.delete(id);
+  console.log('删除条目成功 id:', id);
   return true;
 });
 
@@ -151,6 +183,7 @@ ipcMain.handle('db:deleteEntry', async (event, id) => {
 ipcMain.handle('db:updateEntry', async (event, entry) => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   await repo.update(entry.id, entry);
+  console.log('更新条目成功 id:', entry.id);
   return await repo.findOneBy({ id: entry.id });
 });
 
