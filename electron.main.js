@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { DataSource } = require('typeorm');
@@ -257,4 +257,25 @@ ipcMain.handle('db:getAllTags', async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    if (url.startsWith('file://')) {
+      const filePath = url.slice(7);
+      if (fs.existsSync(filePath)) {
+        await shell.openPath(filePath);
+        return true;
+      } else {
+        console.error('文件不存在:', filePath);
+        return false;
+      }
+    } else {
+      await shell.openExternal(url);
+      return true;
+    }
+  } catch (err) {
+    console.error('打开链接失败:', url, err);
+    return false;
+  }
 });

@@ -67,14 +67,14 @@
         <div class="links-section">
           <h2 class="section-label">相关链接</h2>
           <div v-if="entry.links" class="links-container">
-            <a v-for="(link, index) in parseLinks(entry.links)" :key="index" :href="link" target="_blank" class="link">
+            <div v-for="(link, index) in parseLinks(entry.links)" :key="index" @click="openExternal(link.url)" class="link">
               <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
               <span class="link-text">{{ formatLink(link) }}</span>
-            </a>
+            </div>
           </div>
           <div v-else class="placeholder-message">
             链接走丢了哦~
@@ -116,6 +116,15 @@ export default {
       return entry.value?.music;
     });
 
+    // 打开外部链接
+    const openExternal = (url) => {
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(url);
+      } else {
+        console.error('electronAPI.openExternal is not available');
+      }
+    };
+
     // 解析其他标题
     const parseAltTitles = (altTitles) => {
       try {
@@ -137,19 +146,31 @@ export default {
     // 解析链接
     const parseLinks = (links) => {
       try {
-        return JSON.parse(links);
+        const parsed = JSON.parse(links);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => {
+            if (typeof item === 'object' && item.url) {
+              return { name: item.name || item.url, url: item.url };
+            }
+            return { name: item, url: item };
+          });
+        }
+        return [{ name: parsed, url: parsed }];
       } catch {
-        return [links];
+        return [{ name: links, url: links }];
       }
     };
 
     // 格式化链接显示
     const formatLink = (link) => {
+      if (typeof link === 'object' && link.name) {
+        return link.name;
+      }
       try {
-        const url = new URL(link);
+        const url = new URL(link.url || link);
         return `${url.hostname}${url.pathname !== '/' ? url.pathname : ''}`;
       } catch {
-        return link;
+        return link.url || link;
       }
     };
 
@@ -228,7 +249,8 @@ export default {
       parseLinks,
       formatLink,
       toggleMute,
-      audioEl
+      audioEl,
+      openExternal
     };
   }
 }

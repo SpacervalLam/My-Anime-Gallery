@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateEntry: (entry) => ipcRenderer.invoke('db:updateEntry', entry),
   getAllTags: () => ipcRenderer.invoke('db:getAllTags'),
   deleteFile: (filePath) => ipcRenderer.invoke('file:delete', filePath),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 });

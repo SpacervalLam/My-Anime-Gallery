@@ -123,10 +123,14 @@
               placeholder="链接名称" />
             <input v-model="link.url" type="url"
               class="flex-1 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              placeholder="https://example.com" />
-            <button type="button" @click="removeLink(idx)" class="px-2 text-red-500 hover:text-red-700 text-sm">
-              删除
+              placeholder="https:// or file://" />
+            <button type="button" @click="removeLink(idx)" class="text-red-500 hover:text-red-700 transition p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
+
           </div>
           <button type="button" @click="addLink"
             class="text-indigo-600 hover:text-indigo-800 text-xs flex items-center">
@@ -247,10 +251,10 @@ const filteredAllTags = computed(() => {
   return allTags.value.filter(tag => !tags.value.includes(tag));
 });
 
-async function loadAllTags() {
-  const tags = await window.electronAPI.getAllTags();
-  allTags.value = tags;
-}
+// async function loadAllTags() {
+//   const tags = await window.electronAPI.getAllTags();
+//   allTags.value = tags;
+// }
 
 const currentId = ref(null);
 const title = ref('');
