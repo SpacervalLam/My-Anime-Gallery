@@ -223,6 +223,22 @@ ipcMain.handle('db:updateEntry', async (event, entry) => {
   return await repo.findOneBy({ id: entry.id });
 });
 
+// 删除指定文件
+ipcMain.handle('file:delete', async (event, filePath) => {
+  try {
+    // 只在文件存在时尝试删除
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+      console.log('已删除文件:', filePath);
+    }
+    return true;
+  } catch (err) {
+    console.error('删除文件失败:', filePath, err);
+    // 返回 false 表示失败，但不阻塞渲染进程
+    return false;
+  }
+});
+
 // 获取所有标签
 ipcMain.handle('db:getAllTags', async () => {
   const repo = AppDataSource.getRepository('AnimeEntry');

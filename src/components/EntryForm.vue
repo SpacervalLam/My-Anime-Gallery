@@ -282,6 +282,9 @@ const formState = ref({
   currentId: null
 });
 
+const originalCoverPath = ref(null);
+const originalMusicPath = ref(null);
+
 function getRandomLightColor(tag) {
   if (!tagColors.value[tag]) {
     const colors = [
@@ -328,6 +331,8 @@ function removeLink(index) {
 watch(() => props.initialEntry, entry => {
   if (!entry) return;
   console.log('[EntryForm] init form with', entry.id);
+  originalCoverPath.value = entry.coverPath;
+  originalMusicPath.value = entry.music || null;
   formState.value.isVisible = true;
   formState.value.isEditing = true;
   formState.value.currentId = entry.id;
@@ -416,7 +421,7 @@ function removeAltTitle(index) {
 }
 
 function cancelEdit() {
-  formState.isEditing.value = false;
+  formState.value.isEditing = false;
   resetForm();
 }
 
@@ -486,7 +491,7 @@ function cropImage() {
       return;
     }
 
-    const canvas = cropperInstance.getCroppedCanvas({ width: 800, height: 400 }); // 调整为2/1比例
+    const canvas = cropperInstance.getCroppedCanvas({ width: 800, height: 400 });
     if (canvas) {
       previewImageUrl.value = canvas.toDataURL('image/png');
       resolve(true);
@@ -533,14 +538,22 @@ async function onSubmit() {
     description: description.value.trim() || null
   };
 
-  if (formState.isEditing.value) {
+  if (formState.value.isEditing) {
+    // 如果替换了封面，就先删除原来的文件
+    if (originalCoverPath.value && coverPath.value !== originalCoverPath.value) {
+      await window.electronAPI.deleteFile(originalCoverPath.value);
+    }
+    // 如果替换了音乐，就先删除原来的文件
+    if (originalMusicPath.value && musicPath.value !== originalMusicPath.value) {
+      await window.electronAPI.deleteFile(originalMusicPath.value);
+    }
     await window.electronAPI.updateEntry(entry);
   } else {
     await window.electronAPI.saveEntry(entry);
   }
 
   resetForm();
-  formState.isEditing.value = false;
+  formState.value.isEditing = false;
   window.dispatchEvent(new Event('entry-saved'));
 }
 </script>
