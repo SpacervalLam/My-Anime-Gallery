@@ -49,7 +49,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 
-const emit = defineEmits(['result-click']);
+const emit = defineEmits(['result-click']); // 通知父组件：用户点击了某个建议条目，参数是条目的 id
 const searchQuery = ref('');
 const entries = ref([]);
 const suggestions = ref([]);
@@ -113,7 +113,7 @@ function selectSuggestion(item) {
   searchQuery.value = item.title;
   suggestions.value = [];
   highlightedIndex.value = -1;
-  emit('result-click', item.id);
+  emit('result-click', item.id); // 将 item.id 通过 result-click 事件抛给父组件，由父组件去跳转到详情页
 }
 
 function clearSearch() {

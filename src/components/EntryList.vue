@@ -143,7 +143,7 @@
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <button @click="edit(item)" class="action-button edit-button">
+          <button @click.stop="edit(item)" class="action-button edit-button">
             <svg class="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
@@ -154,7 +154,7 @@
             </svg>
             编辑
           </button>
-          <button @click="remove(item.id)" class="action-button delete-button">
+          <button @click.stop="remove(item.id)" class="action-button delete-button">
             <svg class="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3 6H5H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                 stroke-linejoin="round" />
@@ -169,14 +169,6 @@
             删除
           </button>
         </div>
-
-        <div class="swipe-hint" v-if="!swipePositions[item.id] || swipePositions[item.id] >= 0">
-          <svg class="hint-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M14 5L21 12M21 12L14 19M21 12H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-              stroke-linejoin="round" />
-          </svg>
-          左滑操作
-        </div>
       </div>
     </div>
   </div>
@@ -185,8 +177,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 
-// 添加视图状态
-const isCompactView = ref(false);
+// 声明会向父组件抛出的事件（同 SearchComponent 一样）
+const emit = defineEmits(['result-click']);
+
+const isCompactView = ref(false); // 添加视图状态
+const startTime = ref(0);
+const MAX_CLICK_TIME = 150;    // 单位：ms
+const MAX_CLICK_DISTANCE = 3;  // 单位：px
 
 // 切换视图函数
 function toggleView() {
@@ -224,7 +221,8 @@ function handleStart(e, id) {
   }
 
   startX.value = e.clientX;
-  isDragging.value = true;
+  startTime.value = Date.now(); // 记录按下时刻
+  isDragging.value = false; // 初始设为false
   currentDragId.value = id;
 }
 
@@ -234,30 +232,55 @@ function handleMove(e, id) {
     return;
   }
 
-  if (!isDragging.value || currentDragId.value !== id) return;
+  if (currentDragId.value !== id) return;
 
-  const diff = e.clientX - startX.value;
-  swipePositions.value[id] = Math.min(Math.max(diff, -140), 0);
+  const deltaX = e.clientX - startX.value;
+  if (Math.abs(deltaX) > MAX_CLICK_DISTANCE) {
+    isDragging.value = true;
+  }
+
+  if (isDragging.value) {
+    const limited = Math.min(Math.max(deltaX, -140), 0);
+    swipePositions.value[id] = limited;
+  }
 }
 
 function handleEnd(id) {
-  if (!isDragging.value || currentDragId.value !== id) return;
+  const duration = Date.now() - startTime.value;
+  const pos = swipePositions.value[id] || 0;
 
-  isDragging.value = false;
-  currentDragId.value = null;
+  // 快速点击判断
+  if (!isDragging.value 
+      && duration <= MAX_CLICK_TIME 
+      && Math.abs(pos) <= MAX_CLICK_DISTANCE
+      && currentDragId.value === id) {
+    emit('result-click', id);
+    swipePositions.value[id] = 0;
+    isDragging.value = false;
+    currentDragId.value = null;
+    return;
+  }
 
-  const pos = swipePositions.value[id];
-  const threshold = -100;
-
-  if (pos < threshold) {
-    swipePositions.value[id] = -115;
-    fixedStates.value[id] = false;
-    openCardId.value = null;
+  // 拖拽处理
+  if (isDragging.value && currentDragId.value === id) {
+    const threshold = -100;
+    if (pos < threshold) {
+      swipePositions.value[id] = -115;
+      fixedStates.value[id] = true;
+      openCardId.value = id;
+    } else {
+      swipePositions.value[id] = 0;
+      fixedStates.value[id] = false;
+      openCardId.value = null;
+    }
   } else {
     swipePositions.value[id] = 0;
     fixedStates.value[id] = false;
     openCardId.value = null;
   }
+
+  isDragging.value = false;
+  currentDragId.value = null;
 }
 
 async function load() {

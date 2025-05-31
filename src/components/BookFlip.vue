@@ -19,7 +19,7 @@
       <div class="page cover-back inner">
         <div class="content-page">
           <div class="page-content">
-            <EntryList />
+            <EntryList @result-click="openEntryDetail" />
           </div>
         </div>
       </div>
