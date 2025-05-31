@@ -15,12 +15,15 @@
     "dist": "electron-builder"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
     "cropperjs": "^1.5.12",
     "electron-store": "^8.0.0",
     "epubjs": "^0.3.93",
+    "mkdirp": "^3.0.1",
     "page-flip": "^2.0.7",
     "reflect-metadata": "^0.2.2",
-    "sqlite3": "^5.0.0",
+    "sqlite3": "^5.1.7",
     "three": "^0.176.0",
     "typeorm": "^0.3.0"
   },
