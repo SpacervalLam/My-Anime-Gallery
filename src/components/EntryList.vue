@@ -104,7 +104,7 @@
         <div class="swipe-content" :style="{ transform: `translateX(${swipePositions[item.id] || 0}px)` }">
           <div class="entry-card">
             <div class="entry-content">
-              <!-- 封面图片 - 修复宽高比问题 -->
+              <!-- 封面图片 -->
               <div class="cover-container" :class="{ 'compact': isCompactView }">
                 <img :src="`file://${item.coverPath}`" alt="封面" class="cover-image"
                   v-if="item.coverPath && item.coverPath !== ''" />
@@ -128,7 +128,7 @@
                 <div class="tags-container">
                   <span v-for="(tag, idx) in item.tags ? JSON.parse(item.tags) : []" :key="idx" class="tag" :style="{
                     backgroundColor: getRandomLightColor(tag),
-                    color: '#333'    /* 或者根据需要自动计算反色 */
+                    color: '#333' 
                   }">
                     {{ tag }}
                   </span>
@@ -177,13 +177,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 
-// 声明会向父组件抛出的事件（同 SearchComponent 一样）
+// 声明会向父组件抛出的事件
 const emit = defineEmits(['result-click']);
 
 const isCompactView = ref(false); // 添加视图状态
 const startTime = ref(0);
-const MAX_CLICK_TIME = 150;    // 单位：ms
-const MAX_CLICK_DISTANCE = 3;  // 单位：px
+const MAX_CLICK_TIME = 150;    // ms
+const MAX_CLICK_DISTANCE = 3;  // px
 
 // 切换视图函数
 function toggleView() {
@@ -205,8 +205,7 @@ const tagColors = ref({});
 function getRandomLightColor(tag) {
   if (!tagColors.value[tag]) {
     const hue = Math.floor(Math.random() * 360);
-    // 饱和度 60%，亮度 85%
-    tagColors.value[tag] = `hsl(${hue}, 60%, 85%)`;
+    tagColors.value[tag] = `hsl(${hue}, 60%, 85%)`; // 饱和度 60%，亮度 85%
   }
   return tagColors.value[tag];
 }
@@ -250,10 +249,10 @@ function handleEnd(id) {
   const pos = swipePositions.value[id] || 0;
 
   // 快速点击判断
-  if (!isDragging.value 
-      && duration <= MAX_CLICK_TIME 
-      && Math.abs(pos) <= MAX_CLICK_DISTANCE
-      && currentDragId.value === id) {
+  if (!isDragging.value
+    && duration <= MAX_CLICK_TIME
+    && Math.abs(pos) <= MAX_CLICK_DISTANCE
+    && currentDragId.value === id) {
     emit('result-click', id);
     swipePositions.value[id] = 0;
     isDragging.value = false;
@@ -376,14 +375,12 @@ function handleClickOutside(e) {
   height: 20px;
 }
 
-/* 修复封面图片比例问题 */
 .cover-container {
   position: relative;
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  /* 保持2:1的宽高比 */
   aspect-ratio: 2 / 1;
   width: 100%;
 }
@@ -717,8 +714,22 @@ function handleClickOutside(e) {
   height: 100%;
 }
 
+/* 动画：鼠标悬停和点击时，卡片轻微浮起、缩放和阴影变化 */
 .entry-card {
   height: 100%;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.entry-card:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.entry-card:active {
+  transform: translateY(-2px) scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .entry-content {
@@ -767,6 +778,7 @@ function handleClickOutside(e) {
   font-style: italic;
 }
 
+/* 操作按钮 */
 .action-buttons {
   position: absolute;
   top: 0;
