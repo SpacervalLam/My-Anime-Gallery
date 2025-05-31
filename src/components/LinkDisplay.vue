@@ -71,35 +71,63 @@ const viewer = ref(null);
 const wrapper = ref(null);
 let book = null;
 let rendition = null;
+let observer = null;
 
-// 目录数据：{ label, href, cfi?, level, subitems }
 const toc = ref([]);
 const showTOC = ref(false);
 let showTimer = null;
 let hideTimer = null;
 
-/**
- * 解析 EPUB.js 导航数据到本地 toc 结构
- */
 const parseNav = (items, level = 0) => {
   return items.map(item => ({
     label: item.label.trim(),
     href: item.href,
     cfi: null,
     level,
-    subitems: item.subitems && item.subitems.length
-      ? parseNav(item.subitems, level + 1)
-      : []
+    subitems: item.subitems && item.subitems.length ? parseNav(item.subitems, level + 1) : []
   }));
 };
 
-/**
- * 加载并渲染 EPUB，同时提取目录并生成 CFI
- */
+const lightTheme = {
+  body: {
+    color: '#1e293b',
+    background: 'white',
+    'line-height': '1.6',
+    'font-family': `'Inter', sans-serif`,
+    padding: '1em'
+  },
+  a: {
+    color: '#6366f1'
+  },
+  p: {
+    color: '#334155'
+  }
+};
+
+const darkTheme = {
+  body: {
+    color: '#e2e8f0',
+    background: '#1e293b',
+    'line-height': '1.6',
+    'font-family': `'Inter', sans-serif`,
+    padding: '1em'
+  },
+  a: {
+    color: '#93c5fd'
+  },
+  p: {
+    color: '#e2e8f0'
+  }
+};
+
+const applyTheme = (isDark) => {
+  if (!rendition) return;
+  rendition.themes.register('custom', isDark ? darkTheme : lightTheme);
+  rendition.themes.select('custom');
+};
+
 const loadEpub = (epubUrl) => {
   if (!viewer.value) return;
-
-  // 销毁之前的实例
   if (rendition) {
     rendition.destroy();
     rendition = null;
@@ -109,39 +137,29 @@ const loadEpub = (epubUrl) => {
     book = null;
   }
   toc.value = [];
-
-  // 创建新的 ePub 实例
   book = ePub(epubUrl);
-
-  // 等待导航（TOC）加载完成
   book.ready
     .then(() => book.navigation.loaded)
     .then(() => {
-      // 先把导航对象转换成 toc 数组对象
       toc.value = parseNav(book.navigation.toc);
     })
     .catch(err => {
       console.error('EPUB 导航加载失败:', err);
     })
     .finally(() => {
-      // 渲染 EPUB 内容，使用滚动模式
       rendition = book.renderTo(viewer.value, {
         width: '100%',
         height: '100%',
         flow: 'scrolled',
-        manager: 'default', // 使用默认管理器更稳定
-        spread: 'none' // 禁用分页模式
+        manager: 'default',
+        spread: 'none'
       });
-
-      // 先显示第一页确保内容加载
       rendition.display().then(() => {
-        console.log('EPUB初始渲染完成');
-        
-        // 异步生成位置映射
+        console.log('EPUB 初始渲染完成');
+        applyTheme(document.documentElement.classList.contains('dark'));
         setTimeout(() => {
           rendition.locations.generate().then(() => {
             console.log('位置映射生成完成');
-            // 遍历toc填充cfi
             const assignCfi = (items) => {
               items.forEach(item => {
                 try {
@@ -160,45 +178,23 @@ const loadEpub = (epubUrl) => {
           }).catch(err => {
             console.warn('位置映射生成失败:', err);
           });
-        }, 300); // 添加延迟确保内容稳定
+        }, 300);
       }).catch(err => {
-        console.error('EPUB渲染失败:', err);
+        console.error('EPUB 渲染失败:', err);
       });
     });
 };
 
-/**
- * 跳转到指定目录项
- * 优先使用 CFI，如果不可用则使用 href
- * 完全依赖 epub.js 内建跳转机制
- */
 const goTo = (item) => {
   if (!rendition) return;
   const target = item.cfi || item.href;
-  
-  // 先隐藏目录避免布局变化
   hideTOCImmediate();
-  
   console.log('准备跳转到:', target);
-  
-  // 使用displayed事件确保内容完全加载
-  const handleDisplayed = () => {
-    console.log('内容显示完成，位置稳定');
-    rendition.off('displayed', handleDisplayed);
-  };
-  rendition.on('displayed', handleDisplayed);
-  
-  // 添加小延迟确保事件监听生效
-  setTimeout(() => {
-    rendition.display(target)
-      .then(() => console.log('跳转完成'))
-      .catch(err => console.error('EPUB跳转失败:', err));
-  }, 50);
+  rendition.display(target).catch(err => {
+    console.error('EPUB 跳转失败:', err);
+  });
 };
 
-/**
- * 定时显示目录（鼠标悬停 0.1 秒后）
- */
 const startShowTOCTimer = () => {
   cancelHideTOCTimer();
   if (showTOC.value) return;
@@ -206,6 +202,7 @@ const startShowTOCTimer = () => {
     showTOC.value = true;
   }, 100);
 };
+
 const cancelShowTOCTimer = () => {
   if (showTimer) {
     clearTimeout(showTimer);
@@ -213,9 +210,6 @@ const cancelShowTOCTimer = () => {
   }
 };
 
-/**
- * 定时隐藏目录（鼠标移出 0.05 秒后）
- */
 const startHideTOCTimer = () => {
   cancelShowTOCTimer();
   if (!showTOC.value) return;
@@ -223,6 +217,7 @@ const startHideTOCTimer = () => {
     showTOC.value = false;
   }, 50);
 };
+
 const cancelHideTOCTimer = () => {
   if (hideTimer) {
     clearTimeout(hideTimer);
@@ -230,16 +225,12 @@ const cancelHideTOCTimer = () => {
   }
 };
 
-/**
- * 立即隐藏目录（点击后或切换章节时）
- */
 const hideTOCImmediate = () => {
   cancelShowTOCTimer();
   cancelHideTOCTimer();
   showTOC.value = false;
 };
 
-// 监听 URL 变化
 watch(
   () => props.url,
   (newUrl) => {
@@ -254,13 +245,19 @@ onMounted(() => {
   if (props.url) {
     loadEpub(props.url);
   }
+
+  // 监听 HTML class 切换，动态应用主题
+  const target = document.documentElement;
+  observer = new MutationObserver(() => {
+    const isDark = target.classList.contains('dark');
+    applyTheme(isDark);
+  });
+  observer.observe(target, { attributes: true, attributeFilter: ['class'] });
 });
 
 onUnmounted(() => {
-  // 清除定时器
   cancelShowTOCTimer();
   cancelHideTOCTimer();
-  // 销毁 epub.js 实例
   if (rendition) {
     rendition.destroy();
     rendition = null;
@@ -269,8 +266,13 @@ onUnmounted(() => {
     book.destroy();
     book = null;
   }
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
 });
 </script>
+
 
 <style scoped>
 .link-display-container {
@@ -281,6 +283,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: background 0.3s ease;
+}
+
+.dark .link-display-container {
+  background: #0f172a;
 }
 
 .no-url {
@@ -291,6 +298,11 @@ onUnmounted(() => {
   color: #64748b;
   font-size: 1.2rem;
   font-style: italic;
+  transition: color 0.3s ease;
+}
+
+.dark .no-url {
+  color: #94a3b8;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -304,6 +316,12 @@ onUnmounted(() => {
   margin: 16px;
   background: white;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.dark .epub-wrapper {
+  background: #1e293b;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* 左侧触发区域 */
@@ -314,12 +332,20 @@ onUnmounted(() => {
   width: 60px;
   height: 100%;
   z-index: 10;
-  background: linear-gradient(90deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0) 100%);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
   transition: all 0.3s ease;
 }
 
 .hover-target:hover {
-  background: linear-gradient(90deg, rgba(99,102,241,0.1) 0%, rgba(0,0,0,0) 100%);
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.dark .hover-target {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.dark .hover-target:hover {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
 }
 
 /* 目录侧边栏（悬浮） */
@@ -337,6 +363,11 @@ onUnmounted(() => {
   overflow-y: auto;
   border-radius: 12px;
   padding: 16px 0;
+}
+
+.dark .toc-sidebar {
+  background: #1e293b;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
 /* 当 showTOC=true 时，将侧边栏滑入 */
@@ -357,6 +388,14 @@ onUnmounted(() => {
 .toc-sidebar::-webkit-scrollbar-track {
   background: rgba(241, 245, 249, 0.8);
   border-radius: 4px;
+}
+
+.dark .toc-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(123, 97, 255, 0.6);
+}
+
+.dark .toc-sidebar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.8);
 }
 
 /* 目录列表样式 */
@@ -395,6 +434,15 @@ onUnmounted(() => {
   transform: translateX(4px) scale(0.98);
 }
 
+.dark .toc-item .toc-link {
+  color: #e2e8f0;
+}
+
+.dark .toc-item .toc-link:hover {
+  background: #1e293b;
+  color: #818cf8;
+}
+
 /* 按层级缩进 */
 .level-0 .toc-link {
   padding-left: 8px;
@@ -411,8 +459,6 @@ onUnmounted(() => {
 .level-3 .toc-link {
   padding-left: 44px;
 }
-
-/* 如需更多层级，可继续添加 .level-4 等 */
 
 /* 子目录列表 */
 .toc-sublist {
@@ -432,6 +478,11 @@ onUnmounted(() => {
   background: white;
   scroll-behavior: smooth;
   border-radius: 8px;
+  transition: background 0.3s ease;
+}
+
+.dark .epub-viewer {
+  background: #1e293b;
 }
 
 /* EPUB 滚动条样式 */

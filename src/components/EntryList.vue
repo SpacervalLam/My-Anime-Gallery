@@ -344,6 +344,164 @@ function handleClickOutside(e) {
 </script>
 
 <style scoped>
+/* 基础样式 */
+.gallery-container {
+  background: #f8fafc;
+  transition: background 0.3s ease;
+}
+
+.dark .gallery-container {
+  background: #0f172a;
+}
+
+/* 头部区域 */
+.gallery-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+.dark .gallery-header {
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+}
+
+/* 标签筛选区域 */
+.tags-filter {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dark .tags-filter {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.filter-text {
+  color: #4b5563;
+}
+
+.dark .filter-text {
+  color: #e2e8f0;
+}
+
+.filter-status {
+  color: #6366f1;
+  background: #eef2ff;
+}
+
+.dark .filter-status {
+  color: #93c5fd;
+  background: #1e40af;
+}
+
+/* 标签按钮 */
+.tag-button {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.dark .tag-button {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.tag-button.active {
+  background: #6366f1;
+  color: white;
+}
+
+.dark .tag-button.active {
+  background: #818cf8;
+}
+
+/* 已选标签 */
+.selected-tag {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.dark .selected-tag {
+  background: #1e40af;
+  color: #93c5fd;
+}
+
+/* 空状态 */
+.empty-state {
+  background: white;
+}
+
+.dark .empty-state {
+  background: #1e293b;
+}
+
+.empty-title {
+  color: #1f2937;
+}
+
+.dark .empty-title {
+  color: #f8fafc;
+}
+
+.empty-text {
+  color: #6b7280;
+}
+
+.dark .empty-text {
+  color: #94a3b8;
+}
+
+/* 列表项 */
+.swipe-container {
+  background: #f9fafb;
+}
+
+.dark .swipe-container {
+  background: #1e293b;
+}
+
+.swipe-content {
+  background: white;
+}
+
+.dark .swipe-content {
+  background: #1e293b;
+}
+
+.entry-title {
+  color: #1f2937;
+}
+
+.dark .entry-title {
+  color: #f8fafc;
+}
+
+/* 操作按钮 */
+.action-buttons {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.dark .action-buttons {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%);
+}
+
+.edit-button {
+  background: #e0f2fe;
+  color: #0ea5e9;
+}
+
+.dark .edit-button {
+  background: #1e40af;
+  color: #93c5fd;
+}
+
+.delete-button {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.dark .delete-button {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
 /* 添加头部操作区域样式 */
 .header-actions {
   display: flex;
@@ -383,6 +541,10 @@ function handleClickOutside(e) {
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   aspect-ratio: 2 / 1;
   width: 100%;
+}
+
+.dark .cover-container {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
 
 .cover-container.compact {

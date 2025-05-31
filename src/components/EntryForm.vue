@@ -577,6 +577,86 @@ textarea {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* 基础样式 */
+.w-full {
+  background: #f8fafc;
+  transition: background 0.3s ease;
+}
+
+.dark .w-full {
+  background: #0f172a;
+}
+
+.bg-white {
+  background: white;
+  transition: background 0.3s ease;
+}
+
+.dark .bg-white {
+  background: #1e293b;
+}
+
+.border-gray-100 {
+  border-color: #f3f4f6;
+  transition: border-color 0.3s ease;
+}
+
+.dark .border-gray-100 {
+  border-color: #334155;
+}
+
+.text-gray-700 {
+  color: #374151;
+  transition: color 0.3s ease;
+}
+
+.dark .text-gray-700 {
+  color: #e2e8f0;
+}
+
+.text-gray-500 {
+  color: #6b7280;
+  transition: color 0.3s ease;
+}
+
+.dark .text-gray-500 {
+  color: #94a3b8;
+}
+
+.bg-gray-100 {
+  background: #f3f4f6;
+  transition: background 0.3s ease;
+}
+
+.dark .bg-gray-100 {
+  background: #1e293b;
+}
+
+/* 输入框样式 */
+input, textarea {
+  background: white;
+  border-color: #e5e7eb;
+  color: #111827;
+  transition: all 0.3s ease;
+}
+
+.dark input,
+.dark textarea {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+/* 按钮样式 */
+.bg-indigo-500 {
+  background: #6366f1;
+  transition: background 0.3s ease;
+}
+
+.dark .bg-indigo-500 {
+  background: #818cf8;
+}
+
 /* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 6px;
@@ -585,14 +665,87 @@ textarea {
 ::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #c5c5c5;
   border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+  transition: background 0.3s ease;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* 预览区域 */
+.bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #f9fafb, #f3f4f6);
+  transition: background 0.3s ease;
+}
+
+.dark .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #1e293b, #0f172a);
+}
+
+.text-gray-400 {
+  color: #9ca3af;
+  transition: color 0.3s ease;
+}
+
+.dark .text-gray-400 {
+  color: #64748b;
+}
+
+/* 标签样式 */
+.bg-blue-100 {
+  background: #dbeafe;
+  transition: background 0.3s ease;
+}
+
+.dark .bg-blue-100 {
+  background: #1e40af;
+}
+
+.text-blue-800 {
+  color: #1e40af;
+  transition: color 0.3s ease;
+}
+
+.dark .text-blue-800 {
+  color: #93c5fd;
+}
+
+/* 链接样式 */
+.text-blue-600 {
+  color: #2563eb;
+  transition: color 0.3s ease;
+}
+
+.dark .text-blue-600 {
+  color: #93c5fd;
+}
+
+/* 裁剪区域 */
+.bg-gray-100 {
+  background: #f3f4f6;
+  transition: background 0.3s ease;
+}
+
+.dark .bg-gray-100 {
+  background: #1e293b;
 }
 </style>

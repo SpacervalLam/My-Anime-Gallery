@@ -67,12 +67,8 @@
         <div class="links-section">
           <h2 class="section-label">相关链接</h2>
           <div v-if="entry.links" class="links-container">
-            <div
-              v-for="(link, index) in parseLinks(entry.links)"
-              :key="index"
-              class="link"
-              @click="handleLinkClick(link.url)"
-            >
+            <div v-for="(link, index) in parseLinks(entry.links)" :key="index" class="link"
+              @click="handleLinkClick(link.url)">
               <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -273,6 +269,11 @@ export default {
   box-sizing: border-box;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   user-select: none;
+  transition: all 0.3s ease;
+}
+
+.dark .entry-detail-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
 .entry-detail-content {
@@ -306,10 +307,20 @@ export default {
   transition: all 0.25s ease;
 }
 
+.dark .mute-button {
+  background: rgba(30, 41, 59, 0.92);
+  box-shadow: 0 3px 10px rgba(123, 97, 255, 0.4);
+}
+
 .mute-button:hover:not(.disabled) {
   background: white;
   transform: scale(1.08);
   box-shadow: 0 5px 14px rgba(123, 97, 255, 0.35);
+}
+
+.dark .mute-button:hover:not(.disabled) {
+  background: #1e293b;
+  box-shadow: 0 5px 14px rgba(123, 97, 255, 0.5);
 }
 
 .mute-button.rotating {
@@ -325,6 +336,7 @@ export default {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -344,6 +356,10 @@ export default {
   overflow: hidden;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
   aspect-ratio: 2/1;
+}
+
+.dark .cover-container {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
 }
 
 .cover-image {
@@ -366,6 +382,12 @@ export default {
   gap: 20px;
   flex: 1 1 auto;
   overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.dark .info-section {
+  background: #1e293b;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .title-section {
@@ -374,11 +396,20 @@ export default {
   text-align: center;
 }
 
+.dark .title-section {
+  border-bottom: 1px solid #334155;
+}
+
 .main-title {
   font-size: 1.8rem;
   font-weight: 800;
   color: #1e293b;
   margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.dark .main-title {
+  color: #e2e8f0;
 }
 
 .alt-titles-content {
@@ -387,6 +418,11 @@ export default {
   line-height: 1.5;
   font-style: italic;
   padding: 0 15px;
+  transition: color 0.3s ease;
+}
+
+.dark .alt-titles-content {
+  color: #94a3b8;
 }
 
 .tags-container {
@@ -431,6 +467,13 @@ export default {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   user-select: text;
+  transition: all 0.3s ease;
+}
+
+.dark .description-content {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
 }
 
 .links-container {
@@ -451,10 +494,20 @@ export default {
   user-select: text;
 }
 
+.dark .link {
+  background: #0f172a;
+  border-color: #334155;
+}
+
 .link:hover {
   background: #eef2ff;
   transform: translateX(5px);
   border-color: #c7d2fe;
+}
+
+.dark .link:hover {
+  background: #1e293b;
+  border-color: #4f46e5;
 }
 
 .link-icon {
@@ -472,6 +525,11 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex-grow: 1;
+  transition: color 0.3s ease;
+}
+
+.dark .link-text {
+  color: #818cf8;
 }
 
 /* 加载状态 */
@@ -497,6 +555,7 @@ export default {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -506,6 +565,11 @@ export default {
   font-size: 1.1rem;
   color: #64748b;
   font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.dark .loading-indicator span {
+  color: #94a3b8;
 }
 
 /* 默认消息样式 */
@@ -518,6 +582,13 @@ export default {
   font-size: 0.98rem;
   font-style: italic;
   border: 1px dashed #cbd5e1;
+  transition: all 0.3s ease;
+}
+
+.dark .placeholder-message {
+  background: #0f172a;
+  color: #64748b;
+  border-color: #334155;
 }
 
 /* 空状态样式 */
@@ -535,6 +606,12 @@ export default {
   background: white;
   border-radius: 14px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+  transition: all 0.3s ease;
+}
+
+.dark .placeholder-box {
+  background: #1e293b;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .placeholder-icon {
@@ -543,11 +620,21 @@ export default {
   display: block;
   margin: 0 auto 18px auto;
   color: #cbd5e1;
+  transition: color 0.3s ease;
+}
+
+.dark .placeholder-icon {
+  color: #475569;
 }
 
 .placeholder-box p {
   font-size: 1.15rem;
   color: #64748b;
   margin: 0;
+  transition: color 0.3s ease;
+}
+
+.dark .placeholder-box p {
+  color: #94a3b8;
 }
 </style>

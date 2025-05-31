@@ -446,4 +446,41 @@ body.modal-open .pf__page-cover-back {
   font-size: 1.1rem;
   font-style: italic;
 }
+
+/* === Dark Theme Support === */
+.dark .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dark .modal-content {
+  background: #1e293b; 
+  color: #f1f5f9;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.dark .cover-back {
+  background-color: #1e293b;
+  border-right: 1px solid #334155;
+}
+
+.dark .first-page,
+.dark .inner {
+  background: #0f172a;
+  color: #f1f5f9;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+}
+
+.dark .content-page {
+  background: transparent;
+}
+
+.dark .no-epub-placeholder {
+  color: #cbd5e1;
+}
+
+.dark .cover-content {
+  color: #f1f5f9;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
 </style>
