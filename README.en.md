@@ -51,6 +51,10 @@ npm run dist
 | Gallery View | ![Gallery View](docs/gallery.png) |
 | Import/Export | ![Import/Export](docs/port.png) |
 
+## 💡 Usage Instructions
+
+- Hover the mouse at the top of the screen to show the menu bar
+
 ## 🚀 Development
 
 Tech Stack:
