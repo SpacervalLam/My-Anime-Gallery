@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { DataSource } = require('typeorm');
 const AnimeEntry = require(path.join(__dirname, 'database', 'entity', 'AnimeEntry'));
+const isDev = !app.isPackaged;
+
+let mainWindow = null;
 
 // SQLite 数据源
 const AppDataSource = new DataSource({
@@ -13,72 +16,79 @@ const AppDataSource = new DataSource({
 });
 
 async function createWindow() {
-  await AppDataSource.initialize();
-  const win = new BrowserWindow({
-    fullscreen: true,
-    fullscreenable: true,
-    autoHideMenuBar: true,
-    resizable: false,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false,
-      sandbox: true,
-      scrollBounce: false,
-      webSecurity: false,
-      allowRunningInsecureContent: true
-    }
-  });
-  win.setFullScreen(true);
+  try {
+    await AppDataSource.initialize();
 
-  // 设置安全的内容安全策略
-  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [`
-          default-src 'self';
-          script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
-          style-src 'self' 'unsafe-inline' blob:;
-          img-src 'self' data: blob: file:;
-          media-src 'self' data: blob: file:;
-          font-src 'self' data: blob:;
-          connect-src 'self' ws: blob: file:;
-          frame-src 'self' blob:;
-        `.replace(/\s+/g, ' ')]
+    mainWindow = new BrowserWindow({
+      fullscreen: true,
+      fullscreenable: true,
+      autoHideMenuBar: true,
+      resizable: false,
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true,
+        webSecurity: false,
+        sandbox: true,
+        scrollBounce: false,
+        allowRunningInsecureContent: true
       }
     });
-  });
 
-  // 开发模式下
-  win.loadURL(
-    process.env.NODE_ENV === 'production'
-      ? `file://${path.join(__dirname, 'dist', 'index.html')}`
-      : 'http://localhost:3000'
-  );
+    mainWindow.setFullScreen(true);
 
+    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [`
+            default-src 'self';
+            script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
+            style-src 'self' 'unsafe-inline' blob:;
+            img-src 'self' data: blob: file:;
+            media-src 'self' data: blob: file:;
+            font-src 'self' data: blob:;
+            connect-src 'self' ws: blob: file:;
+            frame-src 'self' blob:;
+          `.replace(/\s+/g, ' ')]
+        }
+      });
+    });
+
+    if (isDev) {
+      // 开发时访问 Vite 的 dev server
+      await mainWindow.loadURL('http://localhost:3000');
+    } else {
+      // 生产时加载 Vite 已 build 出来的 dist/index.html
+      const indexPath = path.join(__dirname, 'dist', 'index.html');
+      await mainWindow.loadFile(indexPath);
+    }
+  } catch (error) {
+    console.error('Failed to create window:', error);
+    throw error;
+  }
 }
+
 
 app.whenReady().then(() => {
   createWindow();
 
   // 只在开发环境下注册快捷键
-  if (!app.isPackaged) {
-    globalShortcut.register('CommandOrControl+Shift+D', () => {
-      const win = BrowserWindow.getFocusedWindow();
-      if (win) {
-        if (win.webContents.isDevToolsOpened()) {
-          win.webContents.closeDevTools();
-        } else {
-          win.webContents.openDevTools();
-        }
+  //if (!app.isPackaged) {
+  globalShortcut.register('CommandOrControl+Shift+D', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools();
+      } else {
+        win.webContents.openDevTools();
       }
-    });
-  }
+    }
+  });
+  //}
 });
 
 // 文件对话框：选择本地封面图片

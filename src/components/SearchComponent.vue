@@ -58,14 +58,30 @@ const highlightedIndex = ref(-1);
 const suggestionListRef = ref(null);
 
 async function loadEntries() {
-  entries.value = await window.electronAPI.getEntries();
-  if (searchQuery.value) onInput();
+  try {
+    if (!window.electronAPI) {
+      throw new Error('electronAPI is not available');
+    }
+    entries.value = await window.electronAPI.getEntries();
+    if (searchQuery.value) onInput();
+  } catch (error) {
+    console.error('Failed to load entries:', error);
+    entries.value = [];
+  }
 }
 
 onMounted(async () => {
-  entries.value = await window.electronAPI.getEntries();
-  window.addEventListener('entry-saved', loadEntries);
-  window.addEventListener('entry-deleted', loadEntries);
+  try {
+    if (!window.electronAPI) {
+      throw new Error('electronAPI is not available');
+    }
+    entries.value = await window.electronAPI.getEntries();
+    window.addEventListener('entry-saved', loadEntries);
+    window.addEventListener('entry-deleted', loadEntries);
+  } catch (error) {
+    console.error('Failed to load initial entries:', error);
+    entries.value = [];
+  }
 });
 
 onUnmounted(() => {

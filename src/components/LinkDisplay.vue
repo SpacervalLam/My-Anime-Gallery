@@ -93,7 +93,7 @@ const lightTheme = {
     color: '#1e293b',
     background: 'white',
     'line-height': '1.6',
-    'font-family': `'Inter', sans-serif`,
+    'font-family': `'CodeNewRoman', sans-serif`,
     padding: '1em'
   },
   a: {
@@ -109,7 +109,7 @@ const darkTheme = {
     color: '#e2e8f0',
     background: '#1e293b',
     'line-height': '1.6',
-    'font-family': `'Inter', sans-serif`,
+    'font-family': `'CodeNewRoman', sans-serif`,
     padding: '1em'
   },
   a: {
@@ -158,7 +158,17 @@ const loadEpub = (epubUrl) => {
         console.log('EPUB 初始渲染完成');
         applyTheme(document.documentElement.classList.contains('dark'));
         setTimeout(() => {
-          rendition.locations.generate().then(() => {
+          // 检查是否支持位置映射功能
+          if (!rendition?.locations || !rendition.locations.generate) {
+            console.warn('此EPUB文件不支持位置映射功能，将使用基本导航模式');
+            toc.value.forEach(item => {
+              item.cfi = null;
+            });
+            return;
+          }
+
+          // 尝试生成位置映射
+          rendition.locations.generate(1000).then(() => {
             console.log('位置映射生成完成');
             const assignCfi = (items) => {
               items.forEach(item => {
@@ -176,7 +186,15 @@ const loadEpub = (epubUrl) => {
             };
             assignCfi(toc.value);
           }).catch(err => {
-            console.warn('位置映射生成失败:', err);
+            console.error('EPUB位置映射生成失败:', err);
+            // 完整回退方案：禁用所有位置映射功能
+            toc.value.forEach(item => {
+              item.cfi = null;
+            });
+            // 显示用户提示
+            window.dispatchEvent(new CustomEvent('epub-warning', {
+              detail: '此电子书不支持高级导航功能，但仍可正常阅读'
+            }));
           });
         }, 300);
       }).catch(err => {
@@ -275,6 +293,13 @@ onUnmounted(() => {
 
 
 <style scoped>
+@font-face {
+  font-family: 'CodeNewRoman';
+  src: url('@/assets/styles/fonts/CodeNewRomanNerdFontMono-Regular.otf');
+  font-weight: 400 500 600;
+  font-style: normal;
+}
+
 .link-display-container {
   width: 100%;
   height: 100%;
@@ -282,7 +307,7 @@ onUnmounted(() => {
   background: #f8fafc;
   display: flex;
   flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'CodeNewRoman', -apple-system, BlinkMacSystemFont, sans-serif;
   transition: background 0.3s ease;
 }
 
@@ -304,8 +329,6 @@ onUnmounted(() => {
 .dark .no-url {
   color: #94a3b8;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 /* EPUB 整体包裹器 */
 .epub-wrapper {

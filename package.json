@@ -2,17 +2,24 @@
   "name": "anime-favorites",
   "version": "0.1.0",
   "main": "electron.main.js",
+  "author": "SpacervalLam <spacervallam@gmail.com>",
+  "description": "My Anime Gallery",
+  "homepage": "https://github.com/SpacervalLam/My-Anime-Gallery",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "serve": "concurrently \"npm run dev\" \"npm run electron:dev:single\"",
     "electron:dev:single": "electron .",
-    "build": "vite build && electron-builder"
+    "build": "vite build && electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "cropperjs": "^1.5.12",
     "electron-store": "^8.0.0",
     "epubjs": "^0.3.93",
     "page-flip": "^2.0.7",
+    "reflect-metadata": "^0.2.2",
     "sqlite3": "^5.0.0",
     "three": "^0.176.0",
     "typeorm": "^0.3.0"
@@ -26,6 +33,50 @@
     "electron-builder": "^26.0.12",
     "postcss": "^8.0.0",
     "tailwindcss": "^3.0.0",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vue": "^3.4.0"
+  },
+  "build": {
+    "appId": "io.github.SpacervalLam.My-Anime-Gallery",
+    "productName": "My Anime Gallery",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron.main.js",
+      "preload.js",
+      "database/**",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/*.log",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/sqlite3/lib/binding/**"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "warningsAsErrors": false,
+      "installerIcon": "public/images/icon.ico",
+      "uninstallerIcon": "public/images/icon.ico",
+      "installerHeaderIcon": "public/images/icon.ico",
+      "allowToChangeInstallationDirectory": true,
+      "installerSidebar": "public/images/banner_welcome.bmp",
+      "installerHeader": "public/images/banner_header.bmp"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/images/icon.ico"
+    },
+    "publish": {
+      "provider": "github",
+      "repo": "My-Anime-Gallery",
+      "owner": "SpacervalLam"
+    }
   }
 }

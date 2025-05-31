@@ -283,9 +283,18 @@ function handleEnd(id) {
 }
 
 async function load() {
-  entries.value = await window.electronAPI.getEntries();
-  allTags.value = await window.electronAPI.getAllTags();
-  window.dispatchEvent(new Event('tags-updated'));
+  try {
+    if (!window.electronAPI) {
+      throw new Error('electronAPI is not available');
+    }
+    entries.value = await window.electronAPI.getEntries();
+    allTags.value = await window.electronAPI.getAllTags();
+    window.dispatchEvent(new Event('tags-updated'));
+  } catch (error) {
+    console.error('Failed to load entries:', error);
+    entries.value = [];
+    allTags.value = [];
+  }
 }
 
 function toggleTag(tag) {
