@@ -3,18 +3,22 @@
     <!-- 右上角悬停菜单 -->
     <div class="theme-menu-trigger" @mouseenter="startShowMenuTimer" @mouseleave="cancelShowMenuTimer">
       <div class="theme-menu" :class="{ visible: showMenu }">
-        <!-- 切换主题按钮 -->
+        <!-- 主题切换 -->
         <button class="theme-toggle" @click="toggleTheme">
           {{ isDarkMode ? '浅色模式' : '深色模式' }}
         </button>
-        <!-- 导出数据 按钮 -->
-        <button class="menu-action" @click="openExportModal">导出数据</button>
-        <!-- 导入数据 按钮 -->
-        <button class="menu-action" @click="openImportModal">导入数据</button>
+        <!-- 导出数据 -->
+        <button class="menu-action" @click="openExportModal">
+          导出数据
+        </button>
+        <!-- 导入数据 -->
+        <button class="menu-action" @click="openImportModal">
+          导入数据
+        </button>
       </div>
     </div>
 
-    <!-- 主内容区，BookFlip -->
+    <!-- 主内容区 -->
     <div class="main-content">
       <BookFlip />
     </div>
@@ -24,15 +28,34 @@
       <div class="modal-box">
         <h3 class="modal-title">导出数据</h3>
         <p>请选择导出数据的存储目录</p>
-        <div class="modal-buttons">
-          <button class="btn btn-confirm" @click="handleExport">确认导出</button>
-          <button class="btn btn-cancel" @click="closeExportModal">取消</button>
+
+        <!-- 导出选项：封面、音乐复选框 -->
+        <div class="export-options">
+          <label>
+            <input type="checkbox" v-model="exportIncludeMusic" />
+            包含背景音乐
+          </label>
         </div>
+
+        <!-- 操作按钮 -->
+        <div class="modal-buttons">
+          <button class="btn btn-confirm" @click="handleExport" :disabled="exporting">
+            <!-- 导出进行时 显示旋转动画 -->
+            <span v-if="exporting" class="spinner"></span>
+            <span v-else>确认导出</span>
+          </button>
+          <button class="btn btn-cancel" @click="closeExportModal" :disabled="exporting">
+            取消
+          </button>
+        </div>
+
+        <!-- 导出结果反馈 -->
         <p v-if="exportMsg" :class="exportStatus === 'success' ? 'feedback-success' : 'feedback-error'">
           {{ exportMsg }}
-          <!-- 如果导出成功，显示一个“打开压缩包所在文件夹”按钮 -->
           <template v-if="exportStatus === 'success'">
-            <button class="btn-link" @click="openArchiveFolder">打开所在文件夹</button>
+            <button class="btn-link" @click="openArchiveFolder">
+              打开所在文件夹
+            </button>
           </template>
         </p>
       </div>
@@ -42,14 +65,33 @@
     <div v-if="showImportModal" class="modal-overlay" @click.self="closeImportModal">
       <div class="modal-box">
         <h3 class="modal-title">导入数据</h3>
-        <p> 请选择要导入的 .spacerval 文件 </p>
+        <p>请选择要导入的 <code>.spacerval</code> 文件</p>
+
         <div class="modal-buttons">
-          <button class="btn btn-confirm" @click="handleImport">确认导入</button>
-          <button class="btn btn-cancel" @click="closeImportModal">取消</button>
+          <button class="btn btn-confirm" @click="handleImport" :disabled="importing">
+            <span v-if="importing" class="spinner"></span>
+            <span v-else>选择</span>
+          </button>
+          <button class="btn btn-cancel" @click="closeImportModal" :disabled="importing">
+            取消
+          </button>
         </div>
-        <p v-if="importMsg" :class="importStatus === 'success' ? 'feedback-success' : 'feedback-error'">
-          {{ importMsg }}
-        </p>
+
+        <!-- 导入结果反馈 -->
+        <div v-if="importMsg" :class="importStatus === 'success' ? 'feedback-success' : 'feedback-error'">
+          <template v-if="importStatus === 'success'">
+            <p>成功导入条目: {{ importedCount }}</p>
+            <div class="conflict-container" v-if="conflictTitles.length > 0">
+              <p>冲突条目（未导入）: {{ conflictTitles.length }}</p>
+              <ul class="conflict-list">
+                <li v-for="title in conflictTitles" :key="title">{{ title }}</li>
+              </ul>
+            </div>
+          </template>
+          <template v-else>
+            <p>{{ importMsg }}</p>
+          </template>
+        </div>
       </div>
     </div>
   </div>
@@ -59,34 +101,17 @@
 import { ref, onMounted, provide } from 'vue';
 import BookFlip from './components/BookFlip.vue';
 
-// ------------- 主题切换 ---------------
+// ------------------- 主题切换 -------------------
 const isDarkMode = ref(false);
 provide('isDarkMode', isDarkMode);
 
 const showMenu = ref(false);
 let menuTimer = null;
-
-// 控制导出/导入模态框显示
-const showExportModal = ref(false);
-const showImportModal = ref(false);
-
-// 导出相关状态
-const exportMsg = ref('');
-const exportStatus = ref(''); // 'success' | 'error'
-let archivePath = '';         // 保存后端返回的 .spacerval 路径
-
-// 导入相关状态
-const importMsg = ref('');
-const importStatus = ref(''); // 'success' | 'error'
-
-// 主题切换函数
 const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value;
   document.documentElement.classList.toggle('dark', isDarkMode.value);
   localStorage.setItem('darkMode', isDarkMode.value);
 };
-
-// 菜单显示与隐藏
 const startShowMenuTimer = () => {
   menuTimer = setTimeout(() => {
     showMenu.value = true;
@@ -97,44 +122,48 @@ const cancelShowMenuTimer = () => {
   menuTimer = null;
   showMenu.value = false;
 };
-
-// 初始化主题样式
 onMounted(() => {
   const savedMode = localStorage.getItem('darkMode') === 'true';
   isDarkMode.value = savedMode;
   document.documentElement.classList.toggle('dark', savedMode);
 });
 
-// 打开/关闭 导出 模态框
+// ------------------- 导出相关 -------------------
+const showExportModal = ref(false);
+const exportIncludeImages = ref(true);  // 是否导出封面
+const exportIncludeMusic = ref(true);   // 是否导出音乐
+const exporting = ref(false);           // 导出中状态
+const exportMsg = ref('');
+const exportStatus = ref('');
+let archivePath = '';
+
 const openExportModal = () => {
   exportMsg.value = '';
   exportStatus.value = '';
+  exportIncludeImages.value = true;
+  exportIncludeMusic.value = true;
   showExportModal.value = true;
 };
 const closeExportModal = () => {
-  showExportModal.value = false;
+  if (!exporting.value) {
+    showExportModal.value = false;
+  }
 };
 
-// 打开/关闭 导入 模态框
-const openImportModal = () => {
-  importMsg.value = '';
-  importStatus.value = '';
-  showImportModal.value = true;
-};
-const closeImportModal = () => {
-  showImportModal.value = false;
-};
-
-// ------------- 导出逻辑 ---------------
 const handleExport = async () => {
-  exportMsg.value = '正在导出，请稍候...';
+  if (exporting.value) return;
+  exporting.value = true;
+  exportMsg.value = '';
   exportStatus.value = '';
   try {
-    // 触发 IPC，后端会返回 { success, message, archivePath }
-    const result = await window.electronAPI.exportData();
+    // 调用预加载层的 IPC，传递用户勾选选项
+    const result = await window.electronAPI.exportData({
+      includeImages: exportIncludeImages.value,
+      includeMusic: exportIncludeMusic.value
+    });
     if (result.success) {
       archivePath = result.archivePath;
-      exportMsg.value = `✔ 导出成功！`;
+      exportMsg.value = `✔ 导出成功！路径：${archivePath}`;
       exportStatus.value = 'success';
     } else {
       exportMsg.value = `✖ 导出失败：${result.message}`;
@@ -144,27 +173,57 @@ const handleExport = async () => {
     console.error('导出异常：', err);
     exportMsg.value = `✖ 导出异常：${err.message}`;
     exportStatus.value = 'error';
+  } finally {
+    exporting.value = false;
   }
 };
 
-// 打开 .spacerval 所在文件夹
-const openArchiveFolder = () => {
-  if (archivePath) {
-    // 打开“文件管理器”，并选中该文件
-    window.electronAPI.showInFolder(archivePath);
-  }
-};
-
-// ------------- 导入逻辑 ---------------
-const handleImport = async () => {
-  importMsg.value = '正在导入，请稍候...';
-  importStatus.value = '';
+// 在资源管理器中高亮显示 .spacerval 文件
+const openArchiveFolder = async () => {
+  if (!archivePath) return;
   try {
-    // 触发 IPC，后端会返回 { success, message }
+    await window.electronAPI.showInFolder(archivePath);
+  } catch (err) {
+    console.error('调用 showInFolder 失败：', err);
+  }
+};
+
+// ------------------- 导入相关 -------------------
+const showImportModal = ref(false);
+const importing = ref(false);
+const importMsg = ref('');
+const importStatus = ref(''); // 'success' / 'error'
+const conflictTitles = ref([]);
+const importedCount = ref(0);
+
+const openImportModal = () => {
+  importMsg.value = '';
+  importStatus.value = '';
+  showImportModal.value = true;
+};
+const closeImportModal = () => {
+  if (!importing.value) {
+    showImportModal.value = false;
+  }
+};
+
+const handleImport = async () => {
+  if (importing.value) return;
+  importing.value = true;
+  importMsg.value = '';
+  importStatus.value = '';
+  conflictTitles.value = [];
+  importedCount.value = 0;
+  try {
     const result = await window.electronAPI.importData();
     if (result.success) {
-      importMsg.value = '✔ 导入成功！';
+      importMsg.value = '导入完成';
       importStatus.value = 'success';
+      window.dispatchEvent(new Event('entry-saved'));
+      importedCount.value = result.importedCount || 0;
+      if (result.conflictTitles && result.conflictTitles.length > 0) {
+        conflictTitles.value = result.conflictTitles;
+      }
     } else {
       importMsg.value = `✖ 导入失败：${result.message}`;
       importStatus.value = 'error';
@@ -173,14 +232,14 @@ const handleImport = async () => {
     console.error('导入异常：', err);
     importMsg.value = `✖ 导入异常：${err.message}`;
     importStatus.value = 'error';
+  } finally {
+    importing.value = false;
   }
 };
 </script>
 
 <style>
-/* =============================================
-   全局与布局样式
-   ============================================= */
+/* ================= 全局 & 布局 ================ */
 html,
 body {
   background: transparent !important;
@@ -194,7 +253,7 @@ body {
   color: #f1f5f9;
 }
 
-/* 右上角悬停菜单触发区域 */
+/* 右上角悬浮菜单 */
 .theme-menu-trigger {
   position: fixed;
   top: 16px;
@@ -204,7 +263,6 @@ body {
   z-index: 100;
 }
 
-/* 悬浮菜单 */
 .theme-menu {
   position: absolute;
   top: 100%;
@@ -245,7 +303,6 @@ body {
   background: #f3f4f6;
 }
 
-/* 深色模式下菜单样式 */
 .dark .theme-menu {
   background: #1e293b;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -261,15 +318,12 @@ body {
   background: #334155;
 }
 
-/* 主内容区 */
 .main-content {
   width: 100%;
   height: 100%;
 }
 
-/* =============================================
-   模态框样式
-   ============================================= */
+/* ================== 模态框 ================ */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -291,7 +345,6 @@ body {
   max-width: 90%;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
   text-align: center;
-  position: relative;
 }
 
 .dark .modal-box {
@@ -304,6 +357,27 @@ body {
   font-size: 18px;
 }
 
+/* 导出选项区 (复选框) */
+.export-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.export-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.export-options input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+/* 按钮区 */
 .modal-buttons {
   display: flex;
   justify-content: center;
@@ -355,7 +429,7 @@ body {
   background: #334155;
 }
 
-/* 导出/导入 结果反馈 */
+/* 结果反馈 */
 .feedback-success {
   margin-top: 12px;
   color: #10b981;
@@ -368,7 +442,22 @@ body {
   /* 红色 */
 }
 
-/* “打开压缩包所在文件夹” 链接样式 */
+/* 冲突条目样式 */
+.conflict-container {
+  margin-top: 8px;
+  color: #ef4444;
+}
+
+.conflict-list {
+  padding-left: 20px;
+  margin-top: 4px;
+}
+
+.conflict-list li {
+  margin-bottom: 4px;
+}
+
+/* “在文件夹中显示” 链接样式 */
 .btn-link {
   background: none;
   border: none;
@@ -381,5 +470,29 @@ body {
 
 .btn-link:hover {
   color: #2563eb;
+}
+
+/* ================= 加载中旋转动画 ================ */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.dark .spinner {
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

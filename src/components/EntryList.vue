@@ -323,6 +323,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.addEventListener('entry-saved', load);
   document.removeEventListener('click', handleClickOutside);
 });
 

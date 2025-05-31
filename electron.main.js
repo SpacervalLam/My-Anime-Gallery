@@ -1,11 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 const mkdirp = require('mkdirp');
-const archiver = require('archiver');        // 用于压缩
-const AdmZip = require('adm-zip');            // 用于解压
+const archiver = require('archiver');
+const AdmZip = require('adm-zip');
 const { DataSource } = require('typeorm');
 const AnimeEntry = require(path.join(__dirname, 'database', 'entity', 'AnimeEntry'));
 
@@ -17,18 +17,15 @@ let mainWindow = null;
 // =============================================
 const AppDataSource = new DataSource({
   type: 'sqlite',
-  // 数据库文件放在 用户数据 目录下，例如：C:\Users\<User>\AppData\Roaming\<AppName>\db.sqlite
   database: path.join(app.getPath('userData'), 'db.sqlite'),
   entities: [AnimeEntry],
-  synchronize: true, // 开发阶段自动同步表结构；上线前建议改为 false 并使用迁移
+  synchronize: true, // 开发阶段使用，生产环境建议关闭并改用迁移
 });
 
 async function createWindow() {
   try {
-    // 初始化数据库连接，并同步表结构
     await AppDataSource.initialize();
 
-    // 创建主窗口
     mainWindow = new BrowserWindow({
       fullscreen: true,
       fullscreenable: true,
@@ -44,14 +41,12 @@ async function createWindow() {
         webSecurity: false,
         sandbox: true,
         scrollBounce: false,
-        allowRunningInsecureContent: true,
+        allowRunningInsecureContent: true
       }
     });
 
-    // 一旦打开就全屏
     mainWindow.setFullScreen(true);
 
-    // 设置 CSP
     mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
       callback({
         responseHeaders: {
@@ -70,7 +65,6 @@ async function createWindow() {
       });
     });
 
-    // 根据开发/生产环境加载 URL
     if (isDev) {
       await mainWindow.loadURL('http://localhost:3000');
     } else {
@@ -82,14 +76,9 @@ async function createWindow() {
   }
 }
 
-
-// =============================================
-// 2. App 启动 & 注册快捷键
-// =============================================
 app.whenReady().then(() => {
   createWindow();
 
-  // 在开发模式下用 Ctrl+Shift+D 切换 DevTools
   globalShortcut.register('CommandOrControl+Shift+D', () => {
     const win = BrowserWindow.getFocusedWindow();
     if (win) {
@@ -100,16 +89,32 @@ app.whenReady().then(() => {
       }
     }
   });
-
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
 });
 
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+
 // =============================================
-// 3. IPC 处理：导出数据（.spacerval）
+// 2. IPC: 在资源管理器中显示并选中文件 (.spacerval)
 // =============================================
-ipcMain.handle('export-anime-data', async () => {
+ipcMain.handle('show-in-folder', async (event, filePath) => {
+  try {
+    await shell.showItemInFolder(filePath);
+    return { success: true };
+  } catch (err) {
+    console.error('在文件管理器中显示失败：', err);
+    return { success: false, message: err.message };
+  }
+});
+
+
+// =============================================
+// 3. IPC: 导出数据（可选是否包含封面与音乐）
+//    接收参数 { includeImages: boolean, includeMusic: boolean }
+// =============================================
+ipcMain.handle('export-anime-data', async (event, options) => {
   try {
     // 3.1 弹出“选择导出目录”对话框
     const { filePaths, canceled } = await dialog.showOpenDialog({
@@ -120,10 +125,13 @@ ipcMain.handle('export-anime-data', async () => {
     if (canceled || filePaths.length === 0) {
       return { success: false, message: '用户取消导出操作' };
     }
-    const targetDir = filePaths[0];
+    const selectedDir = filePaths[0];
 
-    // 3.2 调用 doExport，获取生成的 .spacerval 路径
-    const archivePath = await doExport(targetDir);
+    // 3.2 将选项合并，若无传参则默认都导出
+    const { includeImages = true, includeMusic = true } = options || {};
+
+    // 3.3 调用 doExport(exportDir, includeImages, includeMusic)
+    const archivePath = await doExport(selectedDir, includeImages, includeMusic);
     return { success: true, message: '导出并压缩成功', archivePath };
   } catch (err) {
     console.error('导出失败：', err);
@@ -131,79 +139,40 @@ ipcMain.handle('export-anime-data', async () => {
   }
 });
 
-// =============================================
-// 4. IPC 处理：导入数据（支持 目录 / .zip / .spacerval）
-// =============================================
-ipcMain.handle('import-anime-data', async () => {
-  try {
-    // 1. 只允许选文件，不允许选文件夹
-    // 2. 过滤器只显示后缀 .spacerval
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '请选择要导入的 .spacerval 文件',
-      buttonLabel: '导入',
-      properties: ['openFile'],               // 仅能选文件
-      filters: [
-        { name: 'Spacerval 压缩包', extensions: ['spacerval'] }
-      ]
-    });
-    if (canceled || filePaths.length === 0) {
-      return { success: false, message: '用户取消导入操作' };
-    }
-
-    const selected = filePaths[0];
-    // 将其解压到临时目录并调用 doImport()
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-import-'));
-    try {
-      const zip = new AdmZip(selected);
-      zip.extractAllTo(tmpRoot, /* overwrite */ true);
-    } catch (zipErr) {
-      console.error('解压失败：', zipErr);
-      fs.rmdirSync(tmpRoot, { recursive: true });
-      return { success: false, message: '解压失败：' + zipErr.message };
-    }
-
-    // 调用 doImport 并在完成后删除临时目录
-    await doImport(tmpRoot);
-    fs.rmdirSync(tmpRoot, { recursive: true });
-
-    return { success: true, message: '导入成功' };
-  } catch (err) {
-    console.error('导入失败：', err);
-    return { success: false, message: '导入失败：' + err.message };
-  }
-});
 
 // =============================================
-// 5. doExport(targetDir)：将数据库及媒体导出并压缩为 .spacerval
+// 4. doExport：导出数据库条目 + 可选媒体，并打包 .spacerval
+//
+// 参数说明：
+//   selectedDir   - 用户选中的导出目录（绝对路径）
+//   includeImages - 是否拷贝封面（true/false）
+//   includeMusic  - 是否拷贝音乐（true/false）
 // =============================================
-async function doExport(selectedDir) {
-  // 1. 确保本地数据库存在
+async function doExport(selectedDir, includeImages, includeMusic) {
+  // 4.1 本地数据库检查
   const dbFilename = 'db.sqlite';
   const dbPath = path.join(app.getPath('userData'), dbFilename);
   if (!fs.existsSync(dbPath)) {
     throw new Error(`本地数据库不存在：${dbPath}`);
   }
 
-  // 2. 在 selectedDir 下创建一个以 timestamp 命名的子文件夹
-  //    例如，如果 selectedDir="C:/Export/a"，假设 timestamp="20230531123456789"
-  //    那么 workDir="C:/Export/a/20230531123456789"
+  // 4.2 在 selectedDir 下创建以 timestamp 命名的子文件夹 workDir
   const timestamp = new Date().toISOString().replace(/[:\-T.Z]/g, '');
   const workDir = path.join(selectedDir, timestamp);
   mkdirp.sync(workDir);
 
-  // 3. 在 workDir 下创建 media/covers 与 media/music 子目录
+  // 4.3 在 workDir 下创建 media/covers 与 media/music 子目录
   const mediaDir = path.join(workDir, 'media');
   const coverDir = path.join(mediaDir, 'covers');
   const musicDir = path.join(mediaDir, 'music');
-  [mediaDir, coverDir, musicDir].forEach(dir => {
-    if (!fs.existsSync(dir)) mkdirp.sync(dir);
-  });
+  if (includeImages && !fs.existsSync(coverDir)) mkdirp.sync(coverDir);
+  if (includeMusic && !fs.existsSync(musicDir)) mkdirp.sync(musicDir);
 
-  // 4. 通过 TypeORM 读取所有条目
+  // 4.4 读取所有条目
   const repo = AppDataSource.getRepository('AnimeEntry');
   const rows = await repo.find();
 
-  // 5. 计算文件哈希的辅助函数（用于文件去重并生成固定命名）
+  // 4.5 辅助：计算文件哈希
   function hashFile(filepath) {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash('sha256');
@@ -212,12 +181,12 @@ async function doExport(selectedDir) {
       rs.on('data', chunk => hash.update(chunk));
       rs.on('end', () => {
         const fullHex = hash.digest('hex');
-        resolve(fullHex.slice(0, 16)); // 取前16位
+        resolve(fullHex.slice(0, 16));
       });
     });
   }
 
-  // 6. 拷贝媒体文件并返回相对路径（相对 workDir）
+  // 4.6 辅助：拷贝媒体到目标目录并返回相对路径
   async function copyMediaFile(srcFile, dstDir) {
     if (!srcFile) return null;
     const trimmed = srcFile.trim();
@@ -232,75 +201,74 @@ async function doExport(selectedDir) {
     if (!fs.existsSync(dstFile)) {
       fs.copyFileSync(trimmed, dstFile);
     }
-    // 返回 workDir 下的相对路径，比如 "media/music/abcdef1234.mp3"
     return path.join('media', path.basename(dstDir), filename).replace(/\\/g, '/');
   }
 
-  // 7. 遍历所有数据库记录，拷贝封面与音乐，收集到 entriesMeta 数组
+  // 4.7 遍历条目、拷贝封面/音乐（如果勾选），收集 metadata
   const entriesMeta = [];
   for (const row of rows) {
-    // 7.1 拷贝封面
+    // 4.7.1 处理封面
     let coverRel = null;
-    if (row.coverPath && row.coverPath.trim()) {
+    if (includeImages && row.coverPath && row.coverPath.trim()) {
       const cp = row.coverPath.trim();
       if (fs.existsSync(cp)) {
         coverRel = await copyMediaFile(cp, coverDir);
-        console.log(`→ 封面复制成功，相对路径：${coverRel}`);
+        console.log(`→ 封面复制成功：${coverRel}`);
       } else {
         console.warn(`→ 封面文件不存在，跳过：${cp}`);
       }
     }
 
-    // 7.2 拷贝音乐
+    // 4.7.2 处理音乐
     let musicRel = null;
-    if (row.music && row.music.trim()) {
+    if (includeMusic && row.music && row.music.trim()) {
       const mp = row.music.trim();
       if (fs.existsSync(mp)) {
         musicRel = await copyMediaFile(mp, musicDir);
-        console.log(`→ 音乐复制成功，相对路径：${musicRel}`);
+        console.log(`→ 音乐复制成功：${musicRel}`);
       } else {
         console.warn(`→ 音乐文件不存在，跳过：${mp}`);
       }
     }
 
-    // 7.3 解析 JSON 字段：altTitles、tags、links
+    // 4.7.3 解析 JSON 字段：altTitles/tags/links
     let altArr = [], tagsArr = [], linksArr = [];
     try { altArr = JSON.parse(row.altTitles || '[]'); } catch { altArr = []; }
     try { tagsArr = JSON.parse(row.tags || '[]'); } catch { tagsArr = []; }
     try { linksArr = JSON.parse(row.links || '[]'); } catch { linksArr = []; }
 
-    // 7.4 将本条数据收集到 entriesMeta
+    // 4.7.4 组装 metadata
     entriesMeta.push({
       oldId: row.id,
       title: row.title,
       altTitles: altArr,
-      coverRelativePath: coverRel,  // 可能为 null 或 "media/covers/xxxx.png"
+      coverRelativePath: coverRel,   // 如果未勾选 或 文件不存在，则为 null
       tags: tagsArr,
       links: linksArr,
-      musicRelativePath: musicRel,  // 可能为 null 或 "media/music/xxxx.mp3"
+      musicRelativePath: musicRel,   // 如果未勾选 或 文件不存在，则为 null
       description: row.description || ''
     });
   }
 
-  // 8. 在 workDir 下写入 entries.json
+  // 4.8 写入 entries.json
   const entriesJsonPath = path.join(workDir, 'entries.json');
   fs.writeFileSync(entriesJsonPath, JSON.stringify(entriesMeta, null, 2), 'utf-8');
 
-  // 9. 在 workDir 下写入 manifest.json
+  // 4.9 写入 manifest.json
   const manifest = {
     exportTime: new Date().toISOString(),
     appVersion: app.getVersion(),
     sourceDatabase: dbFilename,
     totalEntries: entriesMeta.length,
-    totalCoverFiles: fs.existsSync(coverDir) ? fs.readdirSync(coverDir).length : 0,
-    totalMusicFiles: fs.existsSync(musicDir) ? fs.readdirSync(musicDir).length : 0,
+    totalCoverFiles: includeImages && fs.existsSync(coverDir) ? fs.readdirSync(coverDir).length : 0,
+    totalMusicFiles: includeMusic && fs.existsSync(musicDir) ? fs.readdirSync(musicDir).length : 0,
     hashAlgorithm: "SHA256-16hex",
     notes: "导入时会自动为冲突 ID 指派新 ID，媒体文件会复制到应用数据目录。"
   };
   const manifestJsonPath = path.join(workDir, 'manifest.json');
   fs.writeFileSync(manifestJsonPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
-  // 10. 在 workDir 下写入 README.txt
+  // 4.10 写入 README.txt
   const readmeContent = `
 导出包说明
 ===========
@@ -308,8 +276,8 @@ async function doExport(selectedDir) {
    ├── manifest.json       # 导出元信息
    ├── entries.json        # 所有 anime_entries 条目的元数据
    ├── media/
-   │   ├── covers/         # 封面图片 (哈希命名)
-   │   └── music/          # 音频文件 (哈希命名)
+   ${includeImages ? '  │   ├── covers/         # 封面图片 (如有导出)' : ''}
+   ${includeMusic  ? '  │   └── music/          # 音频文件 (如有导出)' : ''}
    └── README.txt          # 本说明
 
 2. 导入方式：
@@ -317,79 +285,68 @@ async function doExport(selectedDir) {
   `.trim();
   fs.writeFileSync(path.join(workDir, 'README.txt'), readmeContent, 'utf-8');
 
-  // 11. 准备把 workDir 子文件夹压缩成 [selectedDir]/[timestamp].spacerval
+  // 4.11 压缩 workDir 子文件夹为 [selectedDir]/[timestamp].spacerval
   const archiveFilename = `${timestamp}.spacerval`;
   const archivePath = path.join(selectedDir, archiveFilename);
-
-  // 12. 调用 ZIP 工具，将 workDir 整个目录压缩到 archivePath
   await zipDirectory(workDir, archivePath);
   console.log(`→ 已生成压缩包：${archivePath}`);
 
-  // 13. 压缩完成后，删除 workDir 文件夹（及其内容），只保留 archivePath
-  //    fs.rmdirSync 可以递归删除整个目录
+  // 4.12 删除 workDir 文件夹（及其内容），只保留压缩包
   fs.rmdirSync(workDir, { recursive: true });
 
-  // 14. 返回压缩包的绝对路径，供前端调用方使用
   return archivePath;
 }
 
 
 // =============================================
-// 6. zipDirectory(sourceDir, outPath)：打包成 ZIP
+// 5. IPC: 导入数据（只选 .spacerval 文件）
 // =============================================
-function zipDirectory(sourceDir, outPath) {
-  return new Promise((resolve, reject) => {
-    // 创建写入流，将压缩数据写入指定文件
-    const output = fs.createWriteStream(outPath);
-    // archiver 模块，使用 zip 格式，并设置压缩级别
-    const archive = archiver('zip', {
-      zlib: { level: 9 }
-    });
-
-    // 监听完成事件
-    output.on('close', () => {
-      console.log(`压缩完成，总大小：${archive.pointer()} 字节`);
-      resolve();
-    });
-
-    // 监听错误事件
-    archive.on('error', err => reject(err));
-
-    // 管道：把 archive 数据写入 output
-    archive.pipe(output);
-    // 将 sourceDir 的内容全部添加到压缩包
-    archive.directory(sourceDir, false);
-    // 告诉 archiver 完成
-    archive.finalize();
-  });
-}
-
-
-// —— show-in-folder ——
-// 渲染进程可以调用此 IPC，让 Electron 在文件管理器（资源管理器）里显示并选中指定的文件
-ipcMain.handle('show-in-folder', async (event, filePath) => {
+ipcMain.handle('import-anime-data', async () => {
   try {
-    // 这里使用 Electron 提供的 shell.showItemInFolder 方法
-    // 它会打开文件所在的文件夹，自动选中该文件
-    await shell.showItemInFolder(filePath);
-    return { success: true };
+    // 5.1 弹出对话框，只能选 .spacerval 文件
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: '请选择要导入的 .spacerval 文件',
+      buttonLabel: '导入',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Spacerval 压缩包', extensions: ['spacerval'] }
+      ]
+    });
+    if (canceled || filePaths.length === 0) {
+      return { success: false, message: '用户取消导入操作' };
+    }
+
+    const selected = filePaths[0];
+    // 5.2 解压到临时目录
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-import-'));
+    try {
+      const zip = new AdmZip(selected);
+      zip.extractAllTo(tmpRoot, /* overwrite */ true);
+    } catch (zipErr) {
+      console.error('解压失败：', zipErr);
+      fs.rmdirSync(tmpRoot, { recursive: true });
+      return { success: false, message: '解压失败：' + zipErr.message };
+    }
+
+    // 5.3 调用 doImport(tmpRoot) 并返回结果
+    const importResult = await doImport(tmpRoot);
+
+    // 5.4 删除临时目录
+    fs.rmdirSync(tmpRoot, { recursive: true });
+
+    return importResult;
   } catch (err) {
-    console.error('在文件管理器中显示文件失败：', err);
-    return { success: false, message: err.message };
+    console.error('导入失败：', err);
+    return { success: false, message: '导入失败：' + err.message };
   }
 });
 
 
 // =============================================
-// 7. doImport(importDir)：将解压或文件夹内容导入数据库
+// 6. doImport(importDir)：将解压后的目录导入数据库
 // =============================================
 async function doImport(importDir) {
-  // 7.1 本地 SQLite 数据库路径
-  const dbFilename = 'db.sqlite';
-  const dbPath = path.join(app.getPath('userData'), dbFilename);
-  // 假设 AppDataSource 已经初始化并同步过一次表结构
-
-  // 7.2 读取 manifest.json 和 entries.json
+  // 6.1 检查 entries.json & manifest.json
   const manifestPath = path.join(importDir, 'manifest.json');
   const entriesJsonPath = path.join(importDir, 'entries.json');
   if (!fs.existsSync(manifestPath) || !fs.existsSync(entriesJsonPath)) {
@@ -402,7 +359,12 @@ async function doImport(importDir) {
     throw new Error('无法解析 entries.json：' + e.message);
   }
 
-  // 7.3 确定本地媒体存储目录：%APPDATA%/anime-favorites/ 或 ~/.config/anime-favorites/
+  // 6.1.1 检查标题冲突
+  const title = AppDataSource.getRepository('AnimeEntry');
+  const existingTitles = (await title.find()).map(entry => entry.title);
+  const conflictTitles = [];
+
+  // 6.2 确定本地媒体存储目录（%APPDATA%/anime-favorites 或 ~/.config/anime-favorites）
   let baseMediaDir;
   if (process.platform === 'win32') {
     baseMediaDir = path.join(app.getPath('appData'), 'anime-favorites');
@@ -418,11 +380,11 @@ async function doImport(importDir) {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
   });
 
-  // 7.4 TypeORM repository
+  // 6.3 获取 TypeORM Repository
   const repo = AppDataSource.getRepository('AnimeEntry');
-  const idMap = {}; // oldId → newId
+  const idMap = {}; // oldId -> newId
 
-  // 7.5 辅助：复制媒体文件
+  // 6.4 辅助：复制媒体文件
   function importMediaFile(relPath, dstDir) {
     if (!relPath) return null;
     const srcFile = path.join(importDir, relPath);
@@ -430,27 +392,31 @@ async function doImport(importDir) {
       console.warn(`警告：导入包中缺少媒体：${srcFile}`);
       return null;
     }
-    // 直接用源文件名（哈希 + ext），确保不冲突
     const filename = path.basename(relPath);
     const dstFile = path.join(dstDir, filename);
     if (!fs.existsSync(dstFile)) {
       fs.copyFileSync(srcFile, dstFile);
     }
-    return dstFile; // 返回绝对路径
+    return dstFile;
   }
 
-  // 7.6 遍历每条记录，插入到数据库
+  // 6.5 依次插入每条记录
   for (const entry of entries) {
-    // 7.6.1 复制封面
-    const coverAbs = importMediaFile(entry.coverRelativePath, coverDirLocal);
+    // 6.5.0 检查标题冲突
+    if (existingTitles.includes(entry.title)) {
+      conflictTitles.push(entry.title);
+      console.log(`跳过冲突标题: ${entry.title}`);
+      continue;
+    }
 
-    // 7.6.2 复制音乐
+    // 6.5.1 复制封面
+    const coverAbs = importMediaFile(entry.coverRelativePath, coverDirLocal);
+    // 6.5.2 复制音乐
     const musicAbs = importMediaFile(entry.musicRelativePath, musicDirLocal);
 
-    // 7.6.3 准备要插入的对象
+    // 6.5.3 生成插入对象
     const toInsert = {
       title: entry.title,
-      // altTitles、tags、links 都存为 JSON 字符串
       altTitles: JSON.stringify(entry.altTitles || []),
       coverPath: coverAbs || '',
       tags: JSON.stringify(entry.tags || []),
@@ -459,20 +425,52 @@ async function doImport(importDir) {
       description: entry.description || ''
     };
 
-    // 7.6.4 保存并记录新旧 ID 对应
+    // 6.5.4 保存到数据库并记录映射
     const saved = await repo.save(toInsert);
     idMap[entry.oldId] = saved.id;
     console.log(`已导入 ID=${entry.oldId} → 新 ID=${saved.id}`);
   }
 
   console.log('全部导入完成，oldId→newId 映射：', idMap);
+  
+  // 6.6 返回导入结果
+  return {
+    success: true,
+    importedCount: Object.keys(idMap).length, // 实际导入数量
+    conflictTitles,
+    message: conflictTitles.length > 0 
+      ? `导入完成，跳过 ${conflictTitles.length} 个冲突条目`
+      : '导入成功'
+  };
 }
 
-// =============================================
-// 8. 其它已有 IPC 逻辑：裁剪图片、导入音乐、CRUD 操作等
-// =============================================
 
-// 8.1 选择本地封面图片
+// =============================================
+// 7. zipDirectory：将 sourceDir 目录打包成 ZIP (.spacerval)
+// =============================================
+function zipDirectory(sourceDir, outPath) {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(outPath);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+
+    output.on('close', () => {
+      console.log(`压缩完成，总大小：${archive.pointer()} 字节`);
+      resolve();
+    });
+    archive.on('error', err => reject(err));
+
+    archive.pipe(output);
+    archive.directory(sourceDir, false);
+    archive.finalize();
+  });
+}
+
+
+// =============================================
+// 8. 其余 IPC：图片裁剪、音乐导入、CRUD 操作等（保持不变）
+// =============================================
 ipcMain.handle('dialog:openFile', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: '选择封面图片',
@@ -482,30 +480,20 @@ ipcMain.handle('dialog:openFile', async () => {
   if (canceled) return null;
   return filePaths[0];
 });
-
-// 8.2 保存裁剪后图片
 ipcMain.handle('image:saveCropped', async (event, { dataURL, filename }) => {
   try {
     const base64Data = dataURL.replace(/^data:image\/[a-z]+;base64,/, '');
     const savePath = path.join(app.getPath('userData'), 'covers');
-    if (!fs.existsSync(savePath)) {
-      fs.mkdirSync(savePath, { recursive: true });
-    }
+    if (!fs.existsSync(savePath)) fs.mkdirSync(savePath, { recursive: true });
     const filePath = path.join(savePath, filename);
-    console.log('保存图片到:', filePath);
     fs.writeFileSync(filePath, base64Data, 'base64');
-    if (!fs.existsSync(filePath)) {
-      throw new Error('文件保存失败');
-    }
-    console.log('图片保存成功:', filePath);
+    if (!fs.existsSync(filePath)) throw new Error('文件保存失败');
     return filePath;
   } catch (error) {
-    console.error('保存图片失败:', error);
+    console.error('保存图片失败：', error);
     throw error;
   }
 });
-
-// 8.3 选择音乐文件并导入
 ipcMain.handle('dialog:openMusic', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: '选择背景音乐',
@@ -515,106 +503,70 @@ ipcMain.handle('dialog:openMusic', async () => {
   if (canceled) return null;
   return filePaths[0];
 });
-
 ipcMain.handle('music:import', async (event, srcPath) => {
   try {
     const musicDir = path.join(app.getPath('userData'), 'music');
-    if (!fs.existsSync(musicDir)) {
-      fs.mkdirSync(musicDir, { recursive: true });
-    }
-    // 用时间戳 + 原文件名避免冲突
+    if (!fs.existsSync(musicDir)) fs.mkdirSync(musicDir, { recursive: true });
     const fileName = `${Date.now()}_${path.basename(srcPath)}`;
     const destPath = path.join(musicDir, fileName);
     await fs.promises.copyFile(srcPath, destPath);
-    console.log('音乐导入成功:', destPath);
     return destPath;
   } catch (err) {
-    console.error('音乐导入失败:', err);
+    console.error('音乐导入失败：', err);
     throw err;
   }
 });
 
-// 8.4 数据库 CRUD 操作：saveEntry, getEntries, getEntryById, deleteEntry, updateEntry, getAllTags
 ipcMain.handle('db:saveEntry', async (event, entry) => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   const newEntry = repo.create(entry);
   await repo.save(newEntry);
-  console.log('保存条目成功:', newEntry);
   return newEntry;
 });
-
 ipcMain.handle('db:getEntries', async () => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   return await repo.find({ order: { id: 'DESC' } });
 });
-
 ipcMain.handle('get-entry-by-id', async (event, id) => {
-  try {
-    const repo = AppDataSource.getRepository('AnimeEntry');
-    const entry = await repo.findOne({ where: { id } });
-    if (entry) {
-      console.log('获取条目成功:', { id: entry.id, title: entry.title, coverPath: entry.coverPath });
-    } else {
-      console.log('未找到条目，ID:', id);
-    }
-    return entry;
-  } catch (error) {
-    console.error('获取条目详情错误:', { id, errorMessage: error.message, stack: error.stack });
-    return null;
-  }
+  const repo = AppDataSource.getRepository('AnimeEntry');
+  return await repo.findOne({ where: { id } });
 });
-
 ipcMain.handle('db:deleteEntry', async (event, id) => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   const entry = await repo.findOne({ where: { id } });
   if (entry && entry.coverPath) {
-    try {
-      await fs.promises.unlink(entry.coverPath);
-    } catch (err) {
-      console.error('删除图片失败:', err);
-    }
+    try { await fs.promises.unlink(entry.coverPath); } catch {}
   }
   await repo.delete(id);
-  console.log('删除条目成功 id:', id);
   return true;
 });
-
 ipcMain.handle('db:updateEntry', async (event, entry) => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   await repo.update(entry.id, entry);
-  console.log('更新条目成功 id:', entry.id);
   return await repo.findOneBy({ id: entry.id });
 });
-
 ipcMain.handle('file:delete', async (event, filePath) => {
   try {
     if (fs.existsSync(filePath)) {
       await fs.promises.unlink(filePath);
-      console.log('已删除文件:', filePath);
     }
     return true;
-  } catch (err) {
-    console.error('删除文件失败:', filePath, err);
+  } catch {
     return false;
   }
 });
-
 ipcMain.handle('db:getAllTags', async () => {
   const repo = AppDataSource.getRepository('AnimeEntry');
   const entries = await repo.find();
   const allTags = entries.reduce((acc, entry) => {
     if (entry.tags) {
       const tags = JSON.parse(entry.tags);
-      tags.forEach(tag => {
-        if (!acc.includes(tag)) acc.push(tag);
-      });
+      tags.forEach(tag => { if (!acc.includes(tag)) acc.push(tag); });
     }
     return acc;
   }, []);
   return allTags.sort();
 });
-
-// 8.5 打开外部链接或文件
 ipcMain.handle('open-external', async (event, url) => {
   try {
     if (url.startsWith('file://')) {
@@ -623,15 +575,13 @@ ipcMain.handle('open-external', async (event, url) => {
         await shell.openPath(filePath);
         return true;
       } else {
-        console.error('文件不存在:', filePath);
         return false;
       }
     } else {
       await shell.openExternal(url);
       return true;
     }
-  } catch (err) {
-    console.error('打开链接失败:', url, err);
+  } catch {
     return false;
   }
 });
