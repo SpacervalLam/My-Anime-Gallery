@@ -9,6 +9,7 @@
 
     <div class="book-container" ref="container" :class="{ blurred: showModal }" @mousedown.capture="handleMouseDown"
       @contextmenu.prevent="handleContextMenu">
+      <!-- 封面页（第一页） -->
       <div class="page cover front" @contextmenu.prevent="flipPageNext">
         <div class="cover-content">
           <div class="title">My Anime Journal</div>
@@ -16,6 +17,7 @@
         </div>
       </div>
 
+      <!-- 封底内页（第二页） -->
       <div class="page cover-back inner">
         <div class="content-page">
           <div class="page-content">
@@ -24,28 +26,31 @@
         </div>
       </div>
 
+      <!-- 搜索页（第三页） -->
       <div class="page first-page inner">
         <div class="content-page">
           <SearchComponent @result-click="openEntryDetail" />
         </div>
       </div>
 
-      <!-- 新增详情页 -->
+      <!-- 详情页（第四页） -->
       <div class="page inner">
         <div class="content-page">
           <EntryDetail :entryId="currentEntryId" />
         </div>
       </div>
 
+      <!-- EPUB 展示页（第五页）-->
       <div class="page inner">
         <div class="content-page">
-          <div class="single-page-content">
-            <div class="additional-content">更多内容区域1</div>
-            <div class="additional-content">更多内容区域2</div>
+          <LinkDisplay v-if="currentEpubUrl" :url="currentEpubUrl" />
+          <div v-else class="no-epub-placeholder">
+            <p>未检测到 EPUB 链接。</p>
           </div>
         </div>
       </div>
 
+      <!-- 保留的空白页 -->
       <div class="page inner">
         <div class="content-page">
           <div class="single-page-content">
@@ -64,6 +69,7 @@
         </div>
       </div>
 
+      <!-- 书页最后一页 -->
       <div class="page cover back" @contextmenu.prevent="flipPagePrev"></div>
     </div>
   </div>
@@ -76,6 +82,7 @@ import EntryList from './EntryList.vue';
 import EntryForm from './EntryForm.vue';
 import EntryDetail from './EntryDetail.vue';
 import SearchComponent from './SearchComponent.vue';
+import LinkDisplay from './LinkDisplay.vue';
 
 const wrapper = ref(null);
 const container = ref(null);
@@ -84,12 +91,13 @@ const editingEntry = ref(null);
 const pageFlip = ref(null);
 const originalOverflow = ref('');
 const currentEntryId = ref(null); // 当前显示的条目ID
+const currentEpubUrl = ref(null); // 当前显示的 EPUB 链接
 
 // 打开条目详情页并翻页
 const openEntryDetail = (entryId) => {
   currentEntryId.value = entryId;
 
-  // 翻到详情页（第3页，索引为3）
+  // 翻到详情页（第四页，索引为 3）
   if (pageFlip.value) {
     pageFlip.value.flip(3);
   }
@@ -121,33 +129,32 @@ const handleResize = () => {
   }
 };
 
-// 显示模态框并处理其显示时的副作用
+// 打开编辑表单模态框
 const openModal = () => {
   showModal.value = true;
   originalOverflow.value = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
   document.addEventListener('keydown', handleKeydown);
   window.removeEventListener('resize', handleResize);
-
   if (pageFlip.value) {
     pageFlip.value.turnToPage(pageFlip.value.getCurrentPageIndex(), true);
   }
 };
 
-// 关闭模态框并恢复之前的副作用
+// 关闭编辑表单模态框
 const closeModal = () => {
   showModal.value = false;
   document.body.style.overflow = originalOverflow.value;
   document.removeEventListener('keydown', handleKeydown);
   window.addEventListener('resize', handleResize);
-
   if (pageFlip.value) {
     pageFlip.value.update({ flippingTime: 1000 });
   }
 };
 
+
+// 收到外部请求打开某条目编辑
 function openEditModal(entry) {
-  console.log('[BookFlip] openEditModal', entry.id);
   editingEntry.value = entry;
   openModal();
 }
@@ -169,17 +176,15 @@ const flipPagePrev = () => {
   if (!showModal.value) pageFlip.value?.flipPrev();
 };
 
-// 处理鼠标按下事件，防止在封面页进行翻页操作
+// 处理鼠标按下，阻止在首页/末页误翻
 const handleMouseDown = (e) => {
   const currentPage = pageFlip.value?.getCurrentPageIndex();
   const lastPage = pageFlip.value?.getPageCount() - 1;
-
   if (currentPage === 0 || currentPage === lastPage) {
     e.preventDefault();
     e.stopPropagation();
     return;
   }
-
   if (e.button === 2) return;
   e.stopPropagation();
 };
@@ -189,7 +194,7 @@ const handleContextMenu = (e) => {
   e.preventDefault();
 };
 
-// 组件挂载后初始化书本翻页效果并设置事件监听器
+// 组件挂载后初始化 PageFlip，并监听自定义事件
 onMounted(() => {
   const { width, height } = calculateBookSize();
 
@@ -216,12 +221,25 @@ onMounted(() => {
     openEditModal(e.detail);
   });
 
+  // 监听“打开 EPUB”事件
+  window.addEventListener('open-epub', (e) => {
+    const epubUrl = e.detail;
+    if (typeof epubUrl === 'string' && epubUrl.toLowerCase().endsWith('.epub')) {
+      currentEpubUrl.value = epubUrl;
+      // 翻到 EPUB 页（第五页，索引为 4）
+      pageFlip.value?.flip(4);
+    }
+  });
+
+  // 加载所有 .page DOM 节点
   const pages = Array.from(container.value.querySelectorAll('.page'));
   pageFlip.value.loadFromHTML(pages);
 
   wrapper.value.style.width = `${width + 40}px`;
 
   window.addEventListener('resize', handleResize);
+
+  // 监听“打开表单”事件
   window.addEventListener('open-form', (e) => {
     // 清空上一次的编辑数据
     editingEntry.value = null;
@@ -307,14 +325,11 @@ body.modal-open .pf__page-cover-back {
   max-height: 90%;
   overflow-y: scroll;
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
 .modal-content::-webkit-scrollbar {
   display: none;
-  /* Chrome, Safari and Opera */
 }
 
 .book-container {
@@ -382,7 +397,7 @@ body.modal-open .pf__page-cover-back {
   width: 100%;
 }
 
-.single-page-content>.additional-content {
+.single-page-content > .additional-content {
   flex: 1;
   padding: 20px;
 }
@@ -413,13 +428,22 @@ body.modal-open .pf__page-cover-back {
   0% {
     opacity: 0.6;
   }
-
   50% {
     opacity: 1;
   }
-
   100% {
     opacity: 0.6;
   }
+}
+
+/* EPUB 展示页若没有 URL 时的占位提示 */
+.no-epub-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  font-style: italic;
 }
 </style>

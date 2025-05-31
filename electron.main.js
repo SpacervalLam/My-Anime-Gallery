@@ -26,6 +26,7 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false,
       sandbox: true,
       scrollBounce: false,
       webSecurity: false,
@@ -40,13 +41,15 @@ async function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [`
-        default-src   'self' 'unsafe-inline' data: file: blob:;
-        script-src    'self' 'unsafe-inline';
-        connect-src   'self' http://localhost:3000 ws://localhost:3000 file: blob: data:;
-        style-src     'self' 'unsafe-inline';
-        img-src       'self' data: file: blob:;
-        media-src     'self' data: file: blob:;
-      `.replace(/\s+/g, ' ')]
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
+          style-src 'self' 'unsafe-inline' blob:;
+          img-src 'self' data: blob: file:;
+          media-src 'self' data: blob: file:;
+          font-src 'self' data: blob:;
+          connect-src 'self' ws: blob: file:;
+          frame-src 'self' blob:;
+        `.replace(/\s+/g, ' ')]
       }
     });
   });

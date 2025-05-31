@@ -67,11 +67,17 @@
         <div class="links-section">
           <h2 class="section-label">相关链接</h2>
           <div v-if="entry.links" class="links-container">
-            <div v-for="(link, index) in parseLinks(entry.links)" :key="index" @click="openExternal(link.url)" class="link">
+            <div
+              v-for="(link, index) in parseLinks(entry.links)"
+              :key="index"
+              class="link"
+              @click="handleLinkClick(link.url)"
+            >
               <svg class="link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                </path>
               </svg>
               <span class="link-text">{{ formatLink(link) }}</span>
             </div>
@@ -116,15 +122,6 @@ export default {
       return entry.value?.music;
     });
 
-    // 打开外部链接
-    const openExternal = (url) => {
-      if (window.electronAPI && window.electronAPI.openExternal) {
-        window.electronAPI.openExternal(url);
-      } else {
-        console.error('electronAPI.openExternal is not available');
-      }
-    };
-
     // 解析其他标题
     const parseAltTitles = (altTitles) => {
       try {
@@ -148,7 +145,7 @@ export default {
       try {
         const parsed = JSON.parse(links);
         if (Array.isArray(parsed)) {
-          return parsed.map(item => {
+          return parsed.map((item) => {
             if (typeof item === 'object' && item.url) {
               return { name: item.name || item.url, url: item.url };
             }
@@ -167,8 +164,8 @@ export default {
         return link.name;
       }
       try {
-        const url = new URL(link.url || link);
-        return `${url.hostname}${url.pathname !== '/' ? url.pathname : ''}`;
+        const urlObj = new URL(link.url || link);
+        return `${urlObj.hostname}${urlObj.pathname !== '/' ? urlObj.pathname : ''}`;
       } catch {
         return link.url || link;
       }
@@ -177,28 +174,40 @@ export default {
     // 播放音乐
     const playMusic = () => {
       if (!audioEl.value || !hasMusic.value) return;
-
       audioEl.value.src = `file://${entry.value.music}`;
       audioEl.value.volume = 0.5;
       audioEl.value.muted = isMuted.value;
       audioEl.value
         .play()
-        .catch(e => console.error('播放失败', e));
+        .catch((e) => console.error('播放失败', e));
     };
 
-    // 切换静音状态
+    // 切换静音
     const toggleMute = () => {
       if (!hasMusic.value) return;
       isMuted.value = !isMuted.value;
       audioEl.value.muted = isMuted.value;
-      // 第一次点击时，如果还没播放过，触发播放
       if (!audioEl.value.src) playMusic();
+    };
+
+    // 点击链接时的处理
+    const handleLinkClick = (url) => {
+      if (typeof url === 'string' && url.toLowerCase().endsWith('.epub')) {
+        // 如果是 epub，就通过全局事件让 BookFlip.vue 跳转到 LinkDisplay 页
+        window.dispatchEvent(new CustomEvent('open-epub', { detail: url }));
+      } else {
+        // 否则调用 electron API 打开外部
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          window.electronAPI.openExternal(url);
+        } else {
+          console.error('electronAPI.openExternal is not available');
+        }
+      }
     };
 
     // 获取条目详情
     const fetchEntry = async () => {
       if (!props.entryId) return;
-
       loading.value = true;
       try {
         if (window.electronAPI && window.electronAPI.getEntryById) {
@@ -215,7 +224,6 @@ export default {
       }
     };
 
-    // 监听entryId变化
     watch(() => props.entryId, fetchEntry, { immediate: true });
 
     // 条目加载完成后播放音乐
@@ -250,10 +258,10 @@ export default {
       formatLink,
       toggleMute,
       audioEl,
-      openExternal
+      handleLinkClick
     };
   }
-}
+};
 </script>
 
 <style scoped>
@@ -317,7 +325,6 @@ export default {
   from {
     transform: rotate(0deg);
   }
-
   to {
     transform: rotate(360deg);
   }
@@ -358,7 +365,6 @@ export default {
   flex-direction: column;
   gap: 20px;
   flex: 1 1 auto;
-  /* 占据剩余空间，并允许放大 */
   overflow-y: auto;
 }
 
@@ -491,7 +497,6 @@ export default {
   0% {
     transform: rotate(0deg);
   }
-
   100% {
     transform: rotate(360deg);
   }
@@ -545,47 +550,4 @@ export default {
   color: #64748b;
   margin: 0;
 }
-
-/* 响应式调整 */
-/* @media (max-width: 768px) {
-  .entry-detail-page {
-    padding: 12px;
-  }
-  
-  .info-section {
-    padding: 18px;
-  }
-  
-  .main-title {
-    font-size: 1.6rem;
-  }
-  
-  .cover-container {
-    border-radius: 12px;
-  }
-  
-  .mute-button {
-    width: 36px;
-    height: 36px;
-  }
-}
-
-@media (max-width: 480px) {
-  .main-title {
-    font-size: 1.4rem;
-  }
-  
-  .section-label {
-    font-size: 1.05rem;
-  }
-  
-  .description-content {
-    font-size: 0.9rem;
-    padding: 14px;
-  }
-  
-  .placeholder-box {
-    padding: 20px;
-  }
-} */
 </style>
