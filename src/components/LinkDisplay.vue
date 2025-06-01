@@ -4,12 +4,12 @@
       <p>{{ $t('no_link_provided') }}</p>
     </div>
 
-    <!-- 1. 如果是图片，就展示 <img> -->
+    <!-- 图片展示 -->
     <div v-if="isImage" class="media-container">
       <img :src="url" :alt="$t('image_preview')" class="image-preview" />
     </div>
 
-    <!-- 2. 如果是视频，就展示 <video> 播放器 -->
+    <!-- 视频展示 -->
     <div v-else-if="isVideo" class="media-container">
       <video controls class="video-player">
         <source :src="url" :type="videoMimeType" />
@@ -17,8 +17,16 @@
       </video>
     </div>
 
-    <!-- 3. EPUB 渲染区域 (始终存在但根据条件显示) -->
-    <div class="epub-wrapper" ref="wrapper" v-show="!isImage && !isVideo">
+    <!-- TXT 文件展示 -->
+    <div v-else-if="isTxt" class="txt-container">
+      <pre class="txt-content">{{ txtContent }}</pre>
+    </div>
+
+    <!-- Markdown 文件展示 -->
+    <div v-else-if="isMarkdown" class="markdown-container markdown-body" v-html="markdownContent"></div>
+
+    <!-- EPUB 渲染区域 -->
+    <div class="epub-wrapper" ref="wrapper" v-show="!isImage && !isVideo && !isTxt && !isMarkdown">
       <!-- 左侧隐藏触发区，用于悬停呼出目录 -->
       <div class="hover-target" @mouseenter="startShowTOCTimer" @mouseleave="cancelShowTOCTimer"></div>
 
@@ -71,6 +79,8 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 import ePub from 'epubjs';
+import 'github-markdown-css';
+import MarkdownIt from 'markdown-it';
 
 const props = defineProps({
   url: {
@@ -90,17 +100,27 @@ const showTOC = ref(false);
 let showTimer = null;
 let hideTimer = null;
 
-/** 1) 计算是否为图片（后缀 jpg/jpeg/png/gif/bmp/webp） */
+/** 检测是否为图片 */
 const isImage = computed(() => {
   return /\.(jpe?g|png|gif|bmp|webp)(\?.*)?$/i.test(props.url);
 });
 
-/** 2) 计算是否为视频（后缀 mp4/webm/ogg/mov/m4v） */
+/** 检测是否为视频 */
 const isVideo = computed(() => {
   return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(props.url);
 });
 
-/** 3) 根据后缀生成 video 的 MIME 类型 */
+/** 检测是否为 TXT 文件 */
+const isTxt = computed(() => {
+  return /\.txt(\?.*)?$/i.test(props.url);
+});
+
+/** 检测是否为 Markdown 文件 */
+const isMarkdown = computed(() => {
+  return /\.md(\?.*)?$/i.test(props.url);
+});
+
+/** 视频的 MIME 类型 */
 const videoMimeType = computed(() => {
   if (!isVideo.value) return '';
   const ext = props.url.split('.').pop().toLowerCase().split('?')[0];
@@ -113,6 +133,37 @@ const videoMimeType = computed(() => {
     default: return '';
   }
 });
+
+/** TXT 文件内容 */
+const txtContent = ref('');
+/** Markdown 文件内容 */
+const markdownContent = ref('');
+const mdParser = new MarkdownIt(); // 初始化 markdown-it
+
+/** 加载 TXT 文件内容 */
+const loadTxt = async (txtUrl) => {
+  try {
+    const response = await fetch(txtUrl, { mode: 'cors' }); // 确保跨域请求正常
+    if (!response.ok) throw new Error('Failed to fetch TXT file');
+    txtContent.value = await response.text();
+  } catch (error) {
+    console.error('TXT 文件加载失败:', error);
+    txtContent.value = $t('txt_load_error');
+  }
+};
+
+/** 加载 Markdown 文件内容 */
+const loadMarkdown = async (mdUrl) => {
+  try {
+    const response = await fetch(mdUrl, { mode: 'cors' });
+    if (!response.ok) throw new Error('Failed to fetch Markdown file');
+    const rawMarkdown = await response.text();
+    markdownContent.value = mdParser.render(rawMarkdown); // 使用 markdown-it 解析为 HTML
+  } catch (error) {
+    console.error('Markdown 文件加载失败:', error);
+    markdownContent.value = '<h1>加载失败</h1><p>无法加载指定的 Markdown 文件。</p>';
+  }
+};
 
 /** 4) 解析 EPUB 的目录结构 */
 const parseNav = (items, level = 0) => {
@@ -278,9 +329,15 @@ const hideTOCImmediate = () => {
 /** 10) 监听 props.url 变化：当且仅当既不是图片也不是视频时，才加载 EPUB */
 watch(
   () => props.url,
-  (newUrl) => {
-    if (newUrl && !isImage.value && !isVideo.value) {
-      loadEpub(newUrl);
+  async (newUrl) => {
+    if (newUrl) {
+      if (isTxt.value) {
+        await loadTxt(newUrl); // 确保加载 TXT 文件内容
+      } else if (isMarkdown.value) {
+        await loadMarkdown(newUrl); // 确保加载 Markdown 文件内容
+      } else if (!isImage.value && !isVideo.value) {
+        loadEpub(newUrl);
+      }
     }
   },
   { immediate: true }
@@ -288,7 +345,11 @@ watch(
 
 /** 11) onMounted 时，如果 url 已经存在且是 EPUB，就先加载 EPUB；同时监听 document.documentElement 的 class 变化以切换深浅主题 */
 onMounted(() => {
-  if (props.url && !isImage.value && !isVideo.value) {
+  if (isTxt.value) {
+    loadTxt(props.url);
+  } else if (isMarkdown.value) {
+    loadMarkdown(props.url);
+  } else if (props.url && !isImage.value && !isVideo.value) {
     loadEpub(props.url);
   }
   const target = document.documentElement;
@@ -378,6 +439,11 @@ onUnmounted(() => {
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.image-preview:hover {
+  transform: scale(1.05);
 }
 
 .dark .image-preview {
@@ -588,5 +654,112 @@ onUnmounted(() => {
   min-height: 100%;
   padding: 24px;
   box-sizing: border-box;
+}
+
+/* TXT 文件样式 */
+.txt-container {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  max-height: 100%;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
+  color: #1e293b;
+}
+
+.dark .txt-container {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+/* Markdown 文件样式 */
+.markdown-container {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  max-height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #1e293b;
+}
+
+.dark .markdown-container {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  color: #7b61ff;
+}
+
+.markdown-content a {
+  color: #6366f1;
+  text-decoration: underline;
+}
+
+.markdown-content p {
+  line-height: 1.6;
+  margin-bottom: 1em;
+}
+
+/* Markdown 代码块样式 */
+.markdown-container pre {
+  background: #f3f4f6;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
+  color: #1e293b;
+  border: 1px solid #e5e7eb;
+}
+
+.dark .markdown-container pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #374151;
+}
+
+/* Markdown 表格样式改进，添加 !important 确保优先级 */
+.markdown-container table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 16px 0 !important;
+  background: #ffffff !important; /* 浅色模式背景 */
+  color: #1e293b !important; /* 浅色模式文字颜色 */
+  border: 1px solid #e5e7eb !important;
+}
+
+.markdown-container th,
+.markdown-container td {
+  padding: 8px 12px !important;
+  border: 1px solid #e5e7eb !important;
+  text-align: left !important;
+}
+
+.markdown-container th {
+  background: #f9fafb !important; /* 浅色模式表头背景 */
+  font-weight: bold !important;
+  color: #1e293b !important; /* 浅色模式表头文字颜色 */
+}
+
+.dark .markdown-container table {
+  background: #1e293b !important; /* 深色模式背景 */
+  color: #e2e8f0 !important; /* 深色模式文字颜色 */
+  border: 1px solid #374151 !important;
+}
+
+.dark .markdown-container th,
+.dark .markdown-container td {
+  border: 1px solid #374151 !important;
+}
+
+.dark .markdown-container th {
+  background: #374151 !important; /* 深色模式表头背景 */
+  color: #e2e8f0 !important; /* 深色模式表头文字颜色 */
 }
 </style>

@@ -227,10 +227,16 @@ const isImage = (url) => /\.(jpe?g|png|gif|bmp|webp)(\?.*)?$/i.test(url);
 // 判断后缀是否视频
 const isVideo = (url) => /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(url);
 
-// 点击链接时处理：图片/视频/EPUB 用 open-media 事件，其他打开外部
+// 判断后缀是否为 TXT
+const isTxt = (url) => url.toLowerCase().endsWith('.txt');
+
+// 判断后缀是否为 Markdown
+const isMarkdown = (url) => url.toLowerCase().endsWith('.md');
+
+// 点击链接时处理：图片/视频/EPUB/TXT/Markdown 用 open-media 事件，其他打开外部
 const handleLinkClick = (url) => {
   console.log('handleLinkClick，链接是：', url);
-  if (isImage(url) || isVideo(url) || url.toLowerCase().endsWith('.epub')) {
+  if (isImage(url) || isVideo(url) || isTxt(url) || isMarkdown(url) || url.toLowerCase().endsWith('.epub')) {
     window.dispatchEvent(new CustomEvent('open-media', { detail: url }));
   } else {
     if (window.electronAPI?.openExternal) {
