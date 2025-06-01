@@ -493,4 +493,11 @@ body.modal-open .pf__page-cover-back {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
+.dark .book-wrapper {
+  background-color: transparent !important;
+}
+
+.dark .modal-backdrop {
+  background-color: transparent !important;
+}
 </style>

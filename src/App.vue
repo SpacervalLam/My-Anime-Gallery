@@ -1,25 +1,31 @@
 <template>
-  <div class="app-container" :class="{ 'dark': isDarkMode }">
-    <!-- 右上角悬停菜单 -->
-    <div class="theme-menu-trigger" @mouseenter="startShowMenuTimer" @mouseleave="cancelShowMenuTimer">
-      <div class="theme-menu" :class="{ visible: showMenu }">
-        <!-- 主题切换 -->
-        <button class="theme-toggle" @click="toggleTheme">
-          {{ isDarkMode ? $t('lightMode') : $t('darkMode') }}
-        </button>
-        <!-- 导出数据 -->
-        <button class="menu-action" @click="openExportModal">
-          {{ $t('exportData') }}
-        </button>
-        <!-- 导入数据 -->
-        <button class="menu-action" @click="openImportModal">
-          {{ $t('importData') }}
-        </button>
-        <!-- 设置 -->
-        <button class="menu-action" @click="openSettingsModal">
-          {{ $t('settings') }}
-        </button>
-      </div>
+  <div
+    class="app-container"
+    :class="{ 'dark': isDarkMode, 'fade-out': isAppClosing }"
+  >
+    <!-- 右上角菜单触发按钮 -->
+    <div class="menu-trigger" @click="toggleMenu">
+      <span class="menu-icon">☰</span>
+    </div>
+
+    <!-- 菜单栏 -->
+    <div class="theme-menu" :class="{ visible: isMenuVisible }">
+      <!-- 主题切换 -->
+      <button class="theme-toggle" @click="toggleTheme">
+        {{ isDarkMode ? $t('lightMode') : $t('darkMode') }}
+      </button>
+      <!-- 导出数据 -->
+      <button class="menu-action" @click="openExportModal">
+        {{ $t('exportData') }}
+      </button>
+      <!-- 导入数据 -->
+      <button class="menu-action" @click="openImportModal">
+        {{ $t('importData') }}
+      </button>
+      <!-- 设置 -->
+      <button class="menu-action" @click="openSettingsModal">
+        {{ $t('settings') }}
+      </button>
     </div>
 
     <!-- 主内容区 -->
@@ -113,22 +119,15 @@ import Settings from './components/Settings.vue';
 const isDarkMode = ref(false);
 provide('isDarkMode', isDarkMode);
 
-const showMenu = ref(false);
-let menuTimer = null;
+const isMenuVisible = ref(false);
+const toggleMenu = () => {
+  isMenuVisible.value = !isMenuVisible.value;
+};
+
 const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value;
   document.documentElement.classList.toggle('dark', isDarkMode.value);
   localStorage.setItem('darkMode', isDarkMode.value);
-};
-const startShowMenuTimer = () => {
-  menuTimer = setTimeout(() => {
-    showMenu.value = true;
-  }, 10);
-};
-const cancelShowMenuTimer = () => {
-  clearTimeout(menuTimer);
-  menuTimer = null;
-  showMenu.value = false;
 };
 onMounted(() => {
   const savedMode = localStorage.getItem('darkMode') === 'true';
@@ -263,6 +262,14 @@ body {
   overflow: hidden;
 }
 
+html.dark, body.dark {
+  background-color: transparent !important;
+}
+
+.app-container.dark {
+  background-color: transparent !important;
+}
+
 .app-container.dark {
   background: #1e293b;
   color: #f1f5f9;
@@ -278,27 +285,62 @@ body {
   z-index: 100;
 }
 
+/* 菜单触发按钮样式 */
+.menu-trigger {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
+.menu-trigger:hover {
+  background: #2563eb;
+}
+
+.menu-icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* 重构菜单栏样式 */
 .theme-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
+  top: 70px;
+  right: 16px;
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 8px;
+  padding: 16px;
   opacity: 0;
   transform: translateY(-10px);
-  transition: all 0.2s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  z-index: 100;
 }
 
 .theme-menu.visible {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* 深色模式优化 */
+.dark .theme-menu {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .theme-toggle,
@@ -316,11 +358,6 @@ body {
 .theme-toggle:hover,
 .menu-action:hover {
   background: #f3f4f6;
-}
-
-.dark .theme-menu {
-  background: #1e293b;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .dark .theme-toggle,
@@ -362,9 +399,13 @@ body {
   text-align: center;
 }
 
+.dark .modal-overlay {
+  background-color: transparent !important;
+}
+
 .dark .modal-box {
-  background: #334155;
-  color: white;
+  background-color: transparent !important;
+  color: #f1f5f9;
 }
 
 .modal-title {
