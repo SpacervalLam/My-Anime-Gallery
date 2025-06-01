@@ -794,11 +794,24 @@ function handleClickOutside(e) {
 
 .tags-container {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
+  padding-bottom: 12px;
   border-top: 1px solid #f3f4f6;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-height: 88px; 
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.tags-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tags-container {
+  scroll-behavior: smooth;
 }
 
 .tag-button {
@@ -815,6 +828,8 @@ function handleClickOutside(e) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  scroll-snap-align: start;
+  flex: 0 0 auto;
 }
 
 .tag-button.active {
