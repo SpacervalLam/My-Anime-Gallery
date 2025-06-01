@@ -5,7 +5,7 @@
     </div>
 
     <!-- 1. 如果是图片，就展示 <img> -->
-    <div v-else-if="isImage" class="media-container">
+    <div v-if="isImage" class="media-container">
       <img :src="url" alt="Image Preview" class="image-preview" />
     </div>
 
@@ -17,8 +17,8 @@
       </video>
     </div>
 
-    <!-- 3. 否则当作 EPUB 渲染 -->
-    <div v-else class="epub-wrapper" ref="wrapper">
+    <!-- 3. EPUB 渲染区域 (始终存在但根据条件显示) -->
+    <div class="epub-wrapper" ref="wrapper" v-show="!isImage && !isVideo">
       <!-- 左侧隐藏触发区，用于悬停呼出目录 -->
       <div class="hover-target" @mouseenter="startShowTOCTimer" @mouseleave="cancelShowTOCTimer"></div>
 
