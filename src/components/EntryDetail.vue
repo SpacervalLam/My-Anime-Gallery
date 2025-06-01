@@ -293,14 +293,20 @@ watch(
   }
 );
 
-// 组件卸载时，停止音乐并清空 src
 onMounted(() => {
-  // 返回一个卸载函数
+  const handleEntrySaved = () => {
+    fetchEntry();
+  };
+
+  window.addEventListener('entry-saved', handleEntrySaved);
+
+  // 组件卸载时，停止音乐并清空 src
   return () => {
     if (audioEl.value) {
       audioEl.value.pause();
       audioEl.value.src = '';
     }
+    window.removeEventListener('entry-saved', handleEntrySaved);
   };
 });
 </script>
