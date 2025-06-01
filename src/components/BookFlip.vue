@@ -45,7 +45,7 @@
         <div class="content-page">
           <LinkDisplay v-if="currentEpubUrl" :url="currentEpubUrl" />
           <div v-else class="no-epub-placeholder">
-            <p>未检测到 EPUB 链接。</p>
+            <p>未检测到链接。</p>
           </div>
         </div>
       </div>
@@ -221,12 +221,13 @@ onMounted(() => {
     openEditModal(e.detail);
   });
 
-  // 监听“打开 EPUB”事件
-  window.addEventListener('open-epub', (e) => {
-    const epubUrl = e.detail;
-    if (typeof epubUrl === 'string' && epubUrl.toLowerCase().endsWith('.epub')) {
-      currentEpubUrl.value = epubUrl;
-      // 翻到 EPUB 页（第五页，索引为 4）
+  // 监听“打开媒体”事件
+  window.addEventListener('open-media', (e) => {
+    const mediaUrl = e.detail;
+    console.log('收到 open-media 事件，URL:', mediaUrl);
+    if (typeof mediaUrl === 'string') {
+      currentEpubUrl.value = mediaUrl;
+      // 翻到媒体展示页（第五页，索引为 4）
       pageFlip.value?.flip(4);
     }
   });
@@ -247,6 +248,8 @@ onMounted(() => {
   });
   window.addEventListener('close-form', closeModal);
   window.addEventListener('edit-entry', (e) => openEditModal(e.detail));
+  
+  console.log('BookFlip 组件已挂载，开始监听 open-media 事件');
 });
 
 
@@ -259,7 +262,14 @@ onUnmounted(() => {
   });
   window.removeEventListener('close-form', closeModal);
   window.removeEventListener('start-edit-entry', openEditModal);
+  window.removeEventListener('open-media', (e) => {
+    const mediaUrl = e.detail;
+    currentEpubUrl.value = mediaUrl;
+    pageFlip.value?.flip(4);
+  });
   document.removeEventListener('keydown', handleKeydown);
+  
+  console.log('BookFlip 组件已卸载，移除事件监听');
 
 });
 </script>

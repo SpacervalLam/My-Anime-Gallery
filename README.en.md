@@ -54,6 +54,7 @@ npm run dist
 ## 💡 Usage Instructions
 
 - Hover the mouse at the top of the screen to show the menu bar
+- Right-click to flip pages
 
 ## 🚀 Development
 
