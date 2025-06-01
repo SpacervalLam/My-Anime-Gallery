@@ -76,7 +76,7 @@
   "settings": "設定",
   "selectExportDirectory": "出力先選択",
   "includeBackgroundMusic": "BGMを含める",
-  "confirmExport": "エクスポートを確認",
+  "confirmExport": "出力先選択",
   "openFolder": "フォルダを開く",
   "selectSpacervalFile": ".spacervalファイルを選択",
   "select": "選択",

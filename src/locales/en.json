@@ -76,7 +76,7 @@
   "settings": "Settings",
   "selectExportDirectory": "Select export directory",
   "includeBackgroundMusic": "Include background music",
-  "confirmExport": "Confirm Export",
+  "confirmExport": "Select directory",
   "openFolder": "Open Folder",
   "selectSpacervalFile": "Select .spacerval file",
   "select": "Select",

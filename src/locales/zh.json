@@ -76,7 +76,7 @@
   "settings": "设置",
   "selectExportDirectory": "选择导出目录",
   "includeBackgroundMusic": "包含背景音乐",
-  "confirmExport": "确认导出",
+  "confirmExport": "选择导出目录",
   "openFolder": "打开文件夹",
   "selectSpacervalFile": "选择.spacerval文件",
   "select": "选择",
