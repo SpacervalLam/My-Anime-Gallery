@@ -367,21 +367,55 @@ function handleClickOutside(e) {
 /* 头部区域 */
 .gallery-header {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.gallery-header::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: #f8fafc;
 }
 
 .dark .gallery-header {
   background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
 }
 
+.dark .gallery-header::after {
+  background: #0f172a;
+}
+
 /* 标签筛选区域 */
 .tags-filter {
   background: white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 80px; /* header height + margin */
+  z-index: 9;
+}
+
+.tags-filter::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: #f8fafc;
 }
 
 .dark .tags-filter {
   background: #1e293b;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dark .tags-filter::after {
+  background: #0f172a;
 }
 
 .filter-text {
