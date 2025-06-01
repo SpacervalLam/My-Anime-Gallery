@@ -12,8 +12,8 @@
       <!-- 封面页（第一页） -->
       <div class="page cover front" @contextmenu.prevent="flipPageNext">
         <div class="cover-content">
-          <div class="title">My Anime Journal</div>
-          <div class="hint">Right-click to flip</div>
+          <div class="title">{{ $t('my_anime_journal') }}</div>
+          <div class="hint">{{ $t('right_click_to_flip') }}</div>
         </div>
       </div>
 
@@ -45,7 +45,7 @@
         <div class="content-page">
           <LinkDisplay v-if="currentEpubUrl" :url="currentEpubUrl" />
           <div v-else class="no-epub-placeholder">
-            <p>未检测到链接。</p>
+            <p>{{ $t('no_link_detected') }}</p>
           </div>
         </div>
       </div>
@@ -54,8 +54,8 @@
       <div class="page inner">
         <div class="content-page">
           <div class="single-page-content">
-            <div class="additional-content">更多内容区域1</div>
-            <div class="additional-content">更多内容区域2</div>
+            <div class="additional-content">{{ $t('more_content_area_1') }}</div>
+            <div class="additional-content">{{ $t('more_content_area_2') }}</div>
           </div>
         </div>
       </div>
@@ -63,8 +63,8 @@
       <div class="page inner">
         <div class="content-page">
           <div class="single-page-content">
-            <div class="additional-content">更多内容区域3</div>
-            <div class="additional-content">更多内容区域4</div>
+            <div class="additional-content">{{ $t('more_content_area_3') }}</div>
+            <div class="additional-content">{{ $t('more_content_area_4') }}</div>
           </div>
         </div>
       </div>

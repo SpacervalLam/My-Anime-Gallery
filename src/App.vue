@@ -5,15 +5,19 @@
       <div class="theme-menu" :class="{ visible: showMenu }">
         <!-- 主题切换 -->
         <button class="theme-toggle" @click="toggleTheme">
-          {{ isDarkMode ? '浅色模式' : '深色模式' }}
+          {{ isDarkMode ? $t('lightMode') : $t('darkMode') }}
         </button>
         <!-- 导出数据 -->
         <button class="menu-action" @click="openExportModal">
-          导出数据
+          {{ $t('exportData') }}
         </button>
         <!-- 导入数据 -->
         <button class="menu-action" @click="openImportModal">
-          导入数据
+          {{ $t('importData') }}
+        </button>
+        <!-- 设置 -->
+        <button class="menu-action" @click="openSettingsModal">
+          {{ $t('settings') }}
         </button>
       </div>
     </div>
@@ -26,14 +30,14 @@
     <!-- 导出数据模态框 -->
     <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
       <div class="modal-box">
-        <h3 class="modal-title">导出数据</h3>
-        <p>请选择导出数据的存储目录</p>
+        <h3 class="modal-title">{{ $t('exportData') }}</h3>
+        <p>{{ $t('selectExportDirectory') }}</p>
 
         <!-- 导出选项：封面、音乐复选框 -->
         <div class="export-options">
           <label>
             <input type="checkbox" v-model="exportIncludeMusic" />
-            包含背景音乐
+            {{ $t('includeBackgroundMusic') }}
           </label>
         </div>
 
@@ -42,10 +46,10 @@
           <button class="btn btn-confirm" @click="handleExport" :disabled="exporting">
             <!-- 导出进行时 显示旋转动画 -->
             <span v-if="exporting" class="spinner"></span>
-            <span v-else>确认导出</span>
+            <span v-else>{{ $t('confirmExport') }}</span>
           </button>
           <button class="btn btn-cancel" @click="closeExportModal" :disabled="exporting">
-            取消
+            {{ $t('cancel') }}
           </button>
         </div>
 
@@ -54,7 +58,7 @@
           {{ exportMsg }}
           <template v-if="exportStatus === 'success'">
             <button class="btn-link" @click="openArchiveFolder">
-              打开所在文件夹
+              {{ $t('openFolder') }}
             </button>
           </template>
         </p>
@@ -64,25 +68,25 @@
     <!-- 导入数据模态框 -->
     <div v-if="showImportModal" class="modal-overlay" @click.self="closeImportModal">
       <div class="modal-box">
-        <h3 class="modal-title">导入数据</h3>
-        <p>请选择要导入的 <code>.spacerval</code> 文件</p>
+        <h3 class="modal-title">{{ $t('importData') }}</h3>
+        <p>{{ $t('selectSpacervalFile') }}</p>
 
         <div class="modal-buttons">
           <button class="btn btn-confirm" @click="handleImport" :disabled="importing">
             <span v-if="importing" class="spinner"></span>
-            <span v-else>选择</span>
+            <span v-else>{{ $t('select') }}</span>
           </button>
           <button class="btn btn-cancel" @click="closeImportModal" :disabled="importing">
-            取消
+            {{ $t('cancel') }}
           </button>
         </div>
 
         <!-- 导入结果反馈 -->
         <div v-if="importMsg" :class="importStatus === 'success' ? 'feedback-success' : 'feedback-error'">
           <template v-if="importStatus === 'success'">
-            <p>成功导入条目: {{ importedCount }}</p>
+            <p>{{ $t('successfullyImported', { count: importedCount }) }}</p>
             <div class="conflict-container" v-if="conflictTitles.length > 0">
-              <p>冲突条目（未导入）: {{ conflictTitles.length }}</p>
+              <p>{{ $t('conflictItems', { count: conflictTitles.length }) }}</p>
               <ul class="conflict-list">
                 <li v-for="title in conflictTitles" :key="title">{{ title }}</li>
               </ul>
@@ -94,12 +98,16 @@
         </div>
       </div>
     </div>
+
+    <!-- 设置模态框 -->
+    <Settings ref="settingsModal" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, provide } from 'vue';
 import BookFlip from './components/BookFlip.vue';
+import Settings from './components/Settings.vue';
 
 // ------------------- 主题切换 -------------------
 const isDarkMode = ref(false);
@@ -163,15 +171,15 @@ const handleExport = async () => {
     });
     if (result.success) {
       archivePath = result.archivePath;
-      exportMsg.value = `✔ 导出成功！路径：${archivePath}`;
+      exportMsg.value = `✔ ${$t('exportSuccess')}！路径：${archivePath}`;
       exportStatus.value = 'success';
     } else {
-      exportMsg.value = `✖ 导出失败：${result.message}`;
+      exportMsg.value = `✖ ${$t('exportFailed')}：${result.message}`;
       exportStatus.value = 'error';
     }
   } catch (err) {
     console.error('导出异常：', err);
-    exportMsg.value = `✖ 导出异常：${err.message}`;
+    exportMsg.value = `✖ ${$t('exportException')}：${err.message}`;
     exportStatus.value = 'error';
   } finally {
     exporting.value = false;
@@ -217,7 +225,7 @@ const handleImport = async () => {
   try {
     const result = await window.electronAPI.importData();
     if (result.success) {
-      importMsg.value = '导入完成';
+      importMsg.value = $t('importComplete');
       importStatus.value = 'success';
       window.dispatchEvent(new Event('entry-saved'));
       importedCount.value = result.importedCount || 0;
@@ -225,16 +233,23 @@ const handleImport = async () => {
         conflictTitles.value = result.conflictTitles;
       }
     } else {
-      importMsg.value = `✖ 导入失败：${result.message}`;
+      importMsg.value = `✖ ${$t('importFailed')}：${result.message}`;
       importStatus.value = 'error';
     }
   } catch (err) {
     console.error('导入异常：', err);
-    importMsg.value = `✖ 导入异常：${err.message}`;
+    importMsg.value = `✖ ${$t('importException')}：${err.message}`;
     importStatus.value = 'error';
   } finally {
     importing.value = false;
   }
+};
+
+const settingsModal = ref(null);
+
+// 打开设置模态框
+const openSettingsModal = () => {
+  settingsModal.value?.open();
 };
 </script>
 

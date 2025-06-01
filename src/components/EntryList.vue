@@ -9,12 +9,12 @@
               d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
             </path>
           </svg>
-          我的收藏库
+          {{ $t('myCollection') }}
         </h2>
 
         <div class="header-actions">
           <!-- 视图切换按钮 -->
-          <button @click="toggleView" class="view-toggle" :title="isCompactView ? '切换到大视图' : '切换到小视图'">
+          <button @click="toggleView" class="view-toggle" :title="isCompactView ? $t('viewToggle.expand') : $t('viewToggle.collapse')">
             <svg v-if="isCompactView" class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 6H10V12H4V6Z" stroke="currentColor" stroke-width="1.5" />
               <path d="M14 6H20V12H14V6Z" stroke="currentColor" stroke-width="1.5" />
@@ -33,7 +33,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 6V18M18 12H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
-            添加新条目
+            {{ $t('addNewEntry') }}
           </button>
         </div>
       </div>
@@ -46,15 +46,15 @@
           <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
         <div class="filter-info">
-          <span class="filter-text">标签筛选</span>
-          <span class="filter-status">{{ isTagsExpanded ? '点击收起' : '点击展开' }}</span>
+          <span class="filter-text">{{ $t('tags') }}</span>
+          <span class="filter-status">{{ isTagsExpanded ? $t('clickToCollapse') : $t('clickToExpand') }}</span>
         </div>
       </div>
 
       <transition name="slide-fade">
         <div class="tags-container" v-show="isTagsExpanded">
           <button @click="selectAll" :class="['tag-button', { active: selectedTags.length === 0 }]">
-            全部
+            {{ $t('all') }}
           </button>
           <button v-for="tag in allTags" :key="tag" @click="toggleTag(tag)"
             :class="['tag-button', { active: selectedTags.includes(tag) }]">
@@ -64,7 +64,7 @@
       </transition>
 
       <div class="selected-tags" v-if="selectedTags.length > 0 && !isTagsExpanded">
-        <span class="selected-label">已选:</span>
+        <span class="selected-label">{{ $t('selected') }}:</span>
         <div class="selected-container">
           <span v-for="tag in selectedTags" :key="tag" class="selected-tag">
             {{ tag }}
@@ -83,13 +83,13 @@
           <path d="M8 10V8H6V10H8ZM8 14V12H6V14H8ZM14 10V8H12V10H14ZM14 14V12H12V14H14Z" stroke="currentColor"
             stroke-width="1.5" />
         </svg>
-        <h3 class="empty-title">暂无收藏条目</h3>
-        <p class="empty-text">点击下方按钮添加您的第一条收藏</p>
+        <h3 class="empty-title">{{ $t('noEntries') }}</h3>
+        <p class="empty-text">{{ $t('clickButtonToAdd') }}</p>
         <button @click="openForm" class="empty-button">
           <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 6V18M18 12H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
-          添加新条目
+          {{ $t('addNewEntry') }}
         </button>
       </div>
     </div>
@@ -106,7 +106,7 @@
             <div class="entry-content">
               <!-- 封面图片 -->
               <div class="cover-container" :class="{ 'compact': isCompactView }">
-                <img :src="`file://${item.coverPath}`" alt="封面" class="cover-image"
+                <img :src="`file://${item.coverPath}`" :alt="$t('cover')" class="cover-image"
                   v-if="item.coverPath && item.coverPath !== ''" />
                 <div class="cover-placeholder" v-else>
                   <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -133,7 +133,7 @@
                     {{ tag }}
                   </span>
                   <span v-if="!item.tags || JSON.parse(item.tags).length === 0" class="no-tags">
-                    无标签
+                    {{ $t('noTags') }}
                   </span>
                 </div>
               </div>
@@ -152,7 +152,7 @@
                 d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z"
                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            编辑
+            {{ $t('edit') }}
           </button>
           <button @click.stop="remove(item.id)" class="action-button delete-button">
             <svg class="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -166,7 +166,7 @@
               <path d="M14 11V17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                 stroke-linejoin="round" />
             </svg>
-            删除
+            {{ $t('delete') }}
           </button>
         </div>
       </div>
@@ -624,6 +624,15 @@ function handleClickOutside(e) {
 .compact-view .button-icon {
   width: 16px;
   height: 16px;
+}
+
+/* 修复 line-clamp 的兼容性问题 */
+.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-clamp: 2; /* 标准属性 */
 }
 
 /* 添加过渡效果 */

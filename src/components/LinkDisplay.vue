@@ -1,19 +1,19 @@
 <template>
   <div class="link-display-container">
     <div v-if="!url" class="no-url">
-      <p>未提供链接。</p>
+      <p>{{ $t('no_link_provided') }}</p>
     </div>
 
     <!-- 1. 如果是图片，就展示 <img> -->
     <div v-if="isImage" class="media-container">
-      <img :src="url" alt="Image Preview" class="image-preview" />
+      <img :src="url" :alt="$t('image_preview')" class="image-preview" />
     </div>
 
     <!-- 2. 如果是视频，就展示 <video> 播放器 -->
     <div v-else-if="isVideo" class="media-container">
       <video controls class="video-player">
         <source :src="url" :type="videoMimeType" />
-        您的浏览器不支持视频播放。
+        {{ $t('video_not_supported') }}
       </video>
     </div>
 

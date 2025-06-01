@@ -7,7 +7,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <input v-model="searchQuery" placeholder="搜索动画标题..." class="search-input" @input="onInput" @keydown="onKeyDown"
+        <input v-model="searchQuery" :placeholder="$t('search')" class="search-input" @input="onInput" @keydown="onKeyDown"
           @focus="isFocused = true" @blur="isFocused = false" />
         <div v-if="searchQuery" class="clear-btn" @click="clearSearch">
           <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -22,7 +22,7 @@
         <div v-for="(item, index) in suggestions" :key="item.id" class="suggestion-item"
           :class="{ highlighted: index === highlightedIndex }" @click="selectSuggestion(item)">
           <div class="suggestion-image-wrapper">
-            <img v-if="item.coverPath" :src="`file://${item.coverPath}`" class="suggestion-image" alt="封面" />
+            <img v-if="item.coverPath" :src="`file://${item.coverPath}`" class="suggestion-image" :alt="$t('cover')" />
             <div v-else class="suggestion-image placeholder"></div>
           </div>
           <div class="suggestion-content">
@@ -40,7 +40,7 @@
       </div>
 
       <div v-else-if="searchQuery && !suggestions.length" class="no-results">
-        未找到匹配的条目
+        {{ $t('no_results') }}
       </div>
     </div>
   </div>
@@ -401,7 +401,7 @@ function scrollToHighlighted() {
 }
 
 .suggestion-image.placeholder::after {
-  content: "无封面";
+  content: "$t('noCover')";
   color: #94a3b8;
   font-size: 0.8rem;
 }
@@ -620,7 +620,7 @@ function scrollToHighlighted() {
 }
 
 .suggestion-image.placeholder::after {
-  content: "无封面";
+  content: "$t('noCover')";
   color: #94a3b8;
   font-size: 0.8rem;
 }

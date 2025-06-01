@@ -5,7 +5,7 @@
     <!-- 加载中指示 -->
     <div v-if="loading" class="loading-indicator">
       <div class="spinner"></div>
-      <span>加载中...</span>
+      <span>{{ $t('loading') }}</span>
     </div>
 
     <!-- 有 entry 时显示内容 -->
@@ -17,7 +17,7 @@
           class="mute-button"
           :class="{ rotating: !isMuted, disabled: !hasMusic }"
           :disabled="!hasMusic"
-          :title="hasMusic ? (isMuted ? '取消静音' : '静音') : '无背景音乐'"
+          :title="hasMusic ? (isMuted ? $t('cancelMute') : $t('mute')) : $t('noMusic')"
         >
           <svg
             v-if="!isMuted"
@@ -64,7 +64,7 @@
         <img
           :src="entry.coverPath ? `file://${entry.coverPath}` : '/images/placeholder.jpg'"
           class="cover-image"
-          alt="封面图片"
+          :alt="$t('coverImage')"
         />
       </div>
 
@@ -87,18 +87,18 @@
 
         <!-- 简介 -->
         <div class="description-section">
-          <h2 class="section-label">简介</h2>
+          <h2 class="section-label">{{ $t('summary') }}</h2>
           <div v-if="entry.description" class="description-content">
             {{ entry.description }}
           </div>
           <div v-else class="placeholder-message">
-            简介不见了捏~
+            {{ $t('summaryMissing') }}
           </div>
         </div>
 
         <!-- 相关链接 -->
         <div class="links-section">
-          <h2 class="section-label">相关链接</h2>
+          <h2 class="section-label">{{ $t('relatedLinks') }}</h2>
           <div v-if="entry.links" class="links-container">
             <div
               v-for="(link, idx) in parseLinks(entry.links)"
@@ -124,7 +124,7 @@
             </div>
           </div>
           <div v-else class="placeholder-message">
-            链接走丢了哦~
+            {{ $t('linksMissing') }}
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p>未找到条目信息</p>
+        <p>{{ $t('entryNotFound') }}</p>
       </div>
     </div>
   </div>

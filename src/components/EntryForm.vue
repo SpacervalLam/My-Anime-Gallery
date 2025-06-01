@@ -13,16 +13,16 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span class="text-sm">封面预览</span>
+            <span class="text-sm">{{ $t('coverPreview') }}</span>
           </div>
         </div>
 
         <!-- 预览信息 -->
         <div class="p-3">
-          <h3 class="text-lg font-semibold mb-1.5">{{ title || '标题' }}</h3>
+          <h3 class="text-lg font-semibold mb-1">{{ title || $t('title') }}</h3>
 
           <div v-if="showEscHint" class="text-xs text-indigo-500 bg-indigo-50 rounded py-1 px-2 mb-2 inline-block">
-            按ESC退出条目更新
+            {{ $t('pressEscToExit') }}
           </div>
 
           <!-- 其他标题 -->
@@ -63,11 +63,11 @@
         class="w-full space-y-5 bg-white p-5 rounded-xl shadow-lg border border-gray-100">
         <!-- 主标题输入 -->
         <div>
-          <label class="block text-sm font-medium mb-1 text-gray-700">主标题</label>
+          <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('title') }}</label>
           <div class="flex gap-2">
             <input v-model="title" required
               class="flex-1 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
-              placeholder="输入动漫主标题" ref="titleInput" />
+              :placeholder="$t('title')" ref="titleInput" />
             <button type="button" @click="toggleAltTitleInput"
               class="px-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-sm">
               +
@@ -78,22 +78,22 @@
           <div v-if="showAltTitleInput" class="mt-2">
             <input v-model="newAltTitle" @keydown.enter.prevent="addAltTitle"
               class="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              placeholder="添加其他标题，Enter提交" />
+              :placeholder="$t('addAltTitleHint')" />
           </div>
         </div>
 
         <!-- 标签管理 -->
         <div>
-          <label class="block text-sm font-medium mb-1 text-gray-700">类型标签</label>
+          <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('tagCategory') }}</label>
           <div class="flex items-center flex-wrap gap-2">
             <input v-model="newTag" @keydown.enter.prevent="addTag"
               class="flex-1 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              placeholder="输入标签后按Enter添加" />
+              :placeholder="$t('addTagHint')" />
           </div>
 
           <!-- 标签选择区域 -->
           <div class="mt-2">
-            <p class="text-xs text-gray-500 mb-1">推荐标签:</p>
+            <p class="text-xs text-gray-500 mb-1">{{ $t('recommendedTags') }}</p>
             <div class="flex flex-wrap gap-1.5">
               <button type="button" v-for="tag in filteredAllTags" :key="tag" @click.stop="addExistingTag(tag)"
                 class="px-2.5 py-0.5 bg-gray-100 hover:bg-indigo-100 text-gray-700 rounded-full text-xs transition border border-gray-200">
@@ -101,7 +101,7 @@
               </button>
             </div>
 
-            <p class="text-xs text-gray-500 mt-2 mb-1">已选标签:</p>
+            <p class="text-xs text-gray-500 mt-2 mb-1">{{ $t('selectedTags') }}</p>
             <div class="flex flex-wrap gap-1.5">
               <span v-for="(tag, idx) in tags" :key="idx"
                 :class="`inline-flex items-center px-2.5 py-0.5 ${tagColors[tag] || getRandomLightColor(tag)} rounded-full text-xs font-medium`">
@@ -116,14 +116,14 @@
 
         <!-- 链接管理 -->
         <div>
-          <label class="block text-sm font-medium mb-1 text-gray-700">相关链接</label>
+          <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('relatedLinks') }}</label>
           <div v-for="(link, idx) in links" :key="idx" class="flex gap-2 mb-2">
             <input v-model="link.name"
               class="w-1/3 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              placeholder="链接名称" />
+              :placeholder="$t('linkName')" />
             <input v-model="link.url" type="url"
               class="flex-1 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              placeholder="https:// or file://" />
+              :placeholder="$t('linkUrlHint')" />
             <button type="button" @click="removeLink(idx)" class="text-red-500 hover:text-red-700 transition p-1">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
@@ -138,7 +138,7 @@
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            添加链接
+            {{ $t('addLink') }}
           </button>
         </div>
 
@@ -146,7 +146,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- 封面图片选择 -->
           <div>
-            <label class="block text-sm font-medium mb-1 text-gray-700">封面图片</label>
+            <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('coverImageLabel') }}</label>
             <button type="button" @click="selectImage"
               class="w-full px-3 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center gap-1 text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
@@ -154,13 +154,13 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span>{{ previewImageUrl ? '重新选择图片' : '选择封面图片' }}</span>
+              <span>{{ previewImageUrl ? $t('rechooseImage') : $t('chooseCoverImage') }}</span>
             </button>
           </div>
 
           <!-- 背景音乐选择 -->
           <div>
-            <label class="block text-sm font-medium mb-1 text-gray-700">背景音乐</label>
+            <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('backgroundMusicLabel') }}</label>
             <button type="button" @click="selectMusic"
               class="w-full px-3 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center justify-center gap-1 text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
@@ -168,10 +168,10 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
-              <span>{{ musicPath ? '重新选择音乐' : '选择背景音乐' }}</span>
+              <span>{{ musicPath ? $t('rechooseMusic') : $t('chooseBackgroundMusic') }}</span>
             </button>
             <div v-if="musicPath" class="mt-1 text-xs text-gray-600 truncate px-1">
-              已选择: {{ musicPath }}
+              {{ $t('selectedLabel') }} {{ musicPath }}
             </div>
           </div>
         </div>
@@ -189,7 +189,7 @@
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              应用裁剪
+              {{ $t('applyCrop') }}
             </button>
             <button type="button" @click="resetCropper"
               class="flex-1 px-3 py-1.5 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition text-sm flex items-center justify-center gap-1">
@@ -198,17 +198,17 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              重置裁剪
+              {{ $t('resetCrop') }}
             </button>
           </div>
         </div>
 
         <!-- 简介输入 -->
         <div>
-          <label class="block text-sm font-medium mb-1 text-gray-700">简介</label>
+          <label class="block text-sm font-medium mb-1 text-gray-700">{{ $t('descriptionLabel') }}</label>
           <textarea v-model="description" rows="3"
             class="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            placeholder="输入动漫简介"></textarea>
+            :placeholder="$t('animeDescription')"></textarea>
         </div>
 
         <!-- 表单提交按钮 -->
@@ -225,7 +225,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
             </svg>
-            {{ formState.isEditing ? '更新条目' : '保存条目' }}
+            {{ formState.isEditing ? $t('updateEntry') : $t('saveEntry') }}
           </button>
           <button v-if="formState.isEditing" type="button" @click="cancelEdit"
             class="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg font-medium hover:bg-gray-500 transition text-sm flex items-center justify-center gap-1">
@@ -233,7 +233,7 @@
               stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
-            取消
+            {{ $t('cancel') }}
           </button>
         </div>
       </form>
@@ -481,7 +481,7 @@ async function selectMusic() {
 }
 
 function initCropper() {
-  if (cropperInstance) cropperInstance.destroy();
+  if (cropperInstance) cropopperInstance.destroy();
   cropperInstance = new Cropper(cropperImgRef.value, {
     aspectRatio: 2 / 1,
     viewMode: 1,
