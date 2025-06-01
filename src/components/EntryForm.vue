@@ -423,9 +423,6 @@ function addAltTitle() {
 
 function removeAltTitle(index) {
   altTitles.value.splice(index, 1);
-  if (altTitles.value.length === 0) {
-    altTitles.value.push('');
-  }
 }
 
 function cancelEdit() {
@@ -436,7 +433,7 @@ function cancelEdit() {
 function resetForm() {
   currentId.value = null;
   title.value = '';
-  altTitles.value = [''];
+  altTitles.value = [];
   tags.value = [];
   links.value = [];
   previewImageUrl.value = null;
