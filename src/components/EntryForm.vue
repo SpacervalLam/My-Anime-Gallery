@@ -312,11 +312,22 @@ function addExistingTag(tag) {
   }
 }
 
-function addTag() {
+async function addTag() {
   if (newTag.value.trim() && !tags.value.includes(newTag.value.trim())) {
     tags.value.push(newTag.value.trim());
+    const addedTag = newTag.value.trim();
     newTag.value = '';
     showEscHint.value = false;
+
+    // 调用后端接口获取推荐标签
+    try {
+      const response = await window.electronAPI.getRecommendedTags(addedTag);
+      if (response && Array.isArray(response)) {
+        allTags.value = response;
+      }
+    } catch (error) {
+      console.error('获取推荐标签失败:', error);
+    }
   }
 }
 

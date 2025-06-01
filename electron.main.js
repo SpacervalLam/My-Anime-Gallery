@@ -586,6 +586,35 @@ ipcMain.handle('open-external', async (event, url) => {
   }
 });
 
+// 查询共现标签
+ipcMain.handle('db:getRecommendedTags', async (event, tag) => {
+  const repo = AppDataSource.getRepository('AnimeEntry');
+  const entries = await repo.find();
+
+  // 统计共现标签频率
+  const tagFrequency = {};
+  entries.forEach(entry => {
+    if (entry.tags) {
+      const tags = JSON.parse(entry.tags);
+      if (tags.includes(tag)) {
+        tags.forEach(otherTag => {
+          if (otherTag !== tag) {
+            tagFrequency[otherTag] = (tagFrequency[otherTag] || 0) + 1;
+          }
+        });
+      }
+    }
+  });
+
+  // 按频率排序并返回前 5 个推荐标签
+  const recommendedTags = Object.entries(tagFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([tag]) => tag);
+
+  return recommendedTags;
+});
+
 // =============================================
 // 9. 应用关闭时退出
 // =============================================

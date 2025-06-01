@@ -45,4 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 在文件管理器中显示并选中文件
   showInFolder: (filePath) => ipcRenderer.invoke('show-in-folder', filePath),
+
+  // 获取推荐标签
+  getRecommendedTags: (tag) => ipcRenderer.invoke('db:getRecommendedTags', tag),
 });
