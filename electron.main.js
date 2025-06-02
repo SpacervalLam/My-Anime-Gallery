@@ -433,6 +433,11 @@ async function doImport(importDir) {
 
   console.log('全部导入完成，oldId→newId 映射：', idMap);
   
+  // 通知渲染进程数据已更新
+  if (mainWindow) {
+    mainWindow.webContents.send('data-updated');
+  }
+
   // 6.6 返回导入结果
   return {
     success: true,

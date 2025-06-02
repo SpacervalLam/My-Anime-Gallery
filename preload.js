@@ -48,4 +48,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 获取推荐标签
   getRecommendedTags: (tag) => ipcRenderer.invoke('db:getRecommendedTags', tag),
+
+  // 监听数据更新事件
+  onDataUpdated: (callback) => {
+    ipcRenderer.on('data-updated', callback);
+    return () => ipcRenderer.removeListener('data-updated', callback);
+  }
 });

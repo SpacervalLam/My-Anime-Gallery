@@ -320,10 +320,16 @@ onMounted(() => {
   load();
   window.addEventListener('entry-saved', load);
   document.addEventListener('click', handleClickOutside);
+  
+  // 添加数据更新监听
+  if (window.electronAPI && window.electronAPI.onDataUpdated) {
+    const cleanup = window.electronAPI.onDataUpdated(load);
+    onUnmounted(cleanup);
+  }
 });
 
 onUnmounted(() => {
-  window.addEventListener('entry-saved', load);
+  window.removeEventListener('entry-saved', load);
   document.removeEventListener('click', handleClickOutside);
 });
 

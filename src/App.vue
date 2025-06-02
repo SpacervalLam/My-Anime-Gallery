@@ -226,11 +226,28 @@ const handleImport = async () => {
     if (result.success) {
       importMsg.value = $t('importComplete');
       importStatus.value = 'success';
-      window.dispatchEvent(new Event('entry-saved'));
       importedCount.value = result.importedCount || 0;
       if (result.conflictTitles && result.conflictTitles.length > 0) {
         conflictTitles.value = result.conflictTitles;
       }
+      
+      // 确保数据已更新后再触发刷新
+      let retries = 0;
+      const checkDataUpdated = async () => {
+        try {
+          const entries = await window.electronAPI.getEntries();
+          if (entries.length > 0 || retries >= 3) {
+            window.dispatchEvent(new Event('entry-saved'));
+          } else {
+            retries++;
+            setTimeout(checkDataUpdated, 200);
+          }
+        } catch (error) {
+          console.error('检查数据更新失败:', error);
+          window.dispatchEvent(new Event('entry-saved'));
+        }
+      };
+      setTimeout(checkDataUpdated, 200);
     } else {
       importMsg.value = `✖ ${$t('importFailed')}：${result.message}`;
       importStatus.value = 'error';
