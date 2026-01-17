@@ -7,10 +7,17 @@
       </div>
     </div>
 
-    <div class="book-container" ref="container" :class="{ blurred: showModal }" @mousedown.capture="handleMouseDown"
-      @contextmenu.prevent="handleContextMenu">
+    <div class="book-wrapper-inner">
+      <div class="page-nav prev" @click="flipPagePrev" :class="{ disabled: isAtFirstPage }">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+      </div>
+
+      <div class="book-container" ref="container" :class="{ blurred: showModal }"
+        @contextmenu.prevent="handleContextMenu">
       <!-- 封面页（第一页） -->
-      <div class="page cover front" @contextmenu.prevent="flipPageNext">
+      <div class="page cover front">
         <div class="cover-content">
           <div class="title">{{ $t('my_anime_journal') }}</div>
           <div class="hint">{{ $t('right_click_to_flip') }}</div>
@@ -70,13 +77,20 @@
       </div>
 
       <!-- 书页最后一页 -->
-      <div class="page cover back" @contextmenu.prevent="flipPagePrev"></div>
+      <div class="page cover back"></div>
+    </div>
+
+    <div class="page-nav next" @click="flipPageNext" :class="{ disabled: isAtLastPage }">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"></path>
+      </svg>
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { PageFlip } from 'page-flip';
 import EntryList from './EntryList.vue';
 import EntryForm from './EntryForm.vue';
@@ -92,6 +106,11 @@ const pageFlip = ref(null);
 const originalOverflow = ref('');
 const currentEntryId = ref(null); // 当前显示的条目ID
 const currentEpubUrl = ref(null); // 当前显示的 EPUB 链接
+const currentPageIndex = ref(0); // 当前页索引
+const totalPages = ref(8); // 总页数
+
+const isAtFirstPage = computed(() => currentPageIndex.value <= 0);
+const isAtLastPage = computed(() => currentPageIndex.value === totalPages.value - 1);
 
 // 打开条目详情页并翻页
 const openEntryDetail = (entryId) => {
@@ -168,25 +187,16 @@ const handleKeydown = (e) => {
 
 // 翻到下一页
 const flipPageNext = () => {
-  if (!showModal.value) pageFlip.value?.flipNext();
+  if (!showModal.value && pageFlip.value && !isAtLastPage.value) {
+    pageFlip.value.flipNext();
+  }
 };
 
 // 翻到上一页
 const flipPagePrev = () => {
-  if (!showModal.value) pageFlip.value?.flipPrev();
-};
-
-// 处理鼠标按下，阻止在首页/末页误翻
-const handleMouseDown = (e) => {
-  const currentPage = pageFlip.value?.getCurrentPageIndex();
-  const lastPage = pageFlip.value?.getPageCount() - 1;
-  if (currentPage === 0 || currentPage === lastPage) {
-    e.preventDefault();
-    e.stopPropagation();
-    return;
+  if (!showModal.value && pageFlip.value && !isAtFirstPage.value) {
+    pageFlip.value.flipPrev();
   }
-  if (e.button === 2) return;
-  e.stopPropagation();
 };
 
 // 处理右键点击事件，防止默认行为
@@ -205,11 +215,14 @@ onMounted(() => {
     usePortrait: false,
     showCover: true,
     disableFlipByClick: true,
+    showPageCorners: false,
     flippingTime: 1000,
     swipeDistance: 9999,
-    hoverDistance: 10,
-    hoverArea: 0.1,
+    hoverDistance: 0,
+    hoverArea: 0,
     padding: 0,
+    useMouseEvents: false,
+    useTouchEvents: false,
     shadows: {
       front: { position: 'front', color: 'rgba(0,0,0,0.1)', width: 10 },
       back: { position: 'back', color: 'rgba(0,0,0,0.05)', width: 8 }
@@ -240,7 +253,12 @@ onMounted(() => {
 
   window.addEventListener('resize', handleResize);
 
-  // 监听“打开表单”事件
+  // 监听翻页事件以更新当前页索引
+  pageFlip.value.on('flip', (e) => {
+    currentPageIndex.value = e.data;
+  });
+
+  // 监听"打开表单"事件
   window.addEventListener('open-form', (e) => {
     // 清空上一次的编辑数据
     editingEntry.value = null;
@@ -300,9 +318,46 @@ body.modal-open .pf__page-cover-back {
   z-index: 1;
 }
 
-.modal-overlay {
-  z-index: 9999;
-  pointer-events: auto;
+.book-wrapper-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.page-nav {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.page-nav:hover:not(.disabled) {
+  background: #2563eb;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.page-nav.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dark .page-nav {
+  background: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.dark .page-nav:hover:not(.disabled) {
+  background: #334155;
 }
 
 .modal-backdrop {
@@ -310,7 +365,7 @@ body.modal-open .pf__page-cover-back {
   inset: 0;
   background-color: transparent;
   z-index: 9998;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .modal-overlay {
@@ -319,27 +374,46 @@ body.modal-open .pf__page-cover-back {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100;
+  z-index: 9999;
+  backdrop-filter: none;
+  pointer-events: auto;
 }
 
 .modal-content {
   background: white;
-  padding: 0.8rem 0.1rem;
+  padding: 0.8rem 1rem;
   border-radius: 0.7rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   width: 100%;
+  max-width: 900px;
   max-height: 90%;
-  overflow-y: scroll;
+  overflow-y: auto;
   -ms-overflow-style: none;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  backdrop-filter: none;
+  clip-path: inset(0 0 0 0);
 }
 
 .modal-content::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .book-container {
@@ -359,16 +433,32 @@ body.modal-open .pf__page-cover-back {
   height: var(--page-height) !important;
   overflow: visible !important;
   display: flex !important;
+  pointer-events: none;
+}
+
+.pf__page .content-page,
+.pf__page .cover-content,
+.pf__page .single-page-content,
+.pf__page .page-content {
+  pointer-events: auto;
 }
 
 .cover.front {
   cursor: pointer;
   background: url('/images/front-cover.png') center/cover no-repeat;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .cover.back {
   cursor: pointer;
   background: url('/images/back-cover.png') center/cover no-repeat;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .cover-back {
@@ -420,18 +510,30 @@ body.modal-open .pf__page-cover-back {
   height: 100%;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .title {
   font-size: 3rem;
   font-weight: bold;
   margin-bottom: 20px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .hint {
   font-size: 1.2rem;
   opacity: 0.8;
   animation: pulse 2s infinite;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 @keyframes pulse {

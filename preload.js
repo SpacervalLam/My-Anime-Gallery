@@ -53,5 +53,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDataUpdated: (callback) => {
     ipcRenderer.on('data-updated', callback);
     return () => ipcRenderer.removeListener('data-updated', callback);
-  }
+  },
+
+  // 关闭应用
+  closeApp: () => ipcRenderer.invoke('app:close'),
+
+  // 发送AI API请求
+  sendAIRequest: (aiConfig, prompt, timeout) => ipcRenderer.invoke('ai:sendRequest', aiConfig, prompt, timeout),
+  
+  // 测试代理连接
+  testProxyConnection: (proxyConfig) => ipcRenderer.invoke('ai:testProxyConnection', proxyConfig),
+  
+  // 保存AI配置
+  saveAIConfig: (config) => ipcRenderer.invoke('ai:saveConfig', config),
+  
+  // 加载AI配置
+  loadAIConfig: () => ipcRenderer.invoke('ai:loadConfig')
 });

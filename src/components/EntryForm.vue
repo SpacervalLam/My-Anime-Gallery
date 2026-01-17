@@ -68,9 +68,18 @@
             <input v-model="title" required
               class="flex-1 border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
               :placeholder="$t('title')" ref="titleInput" />
-            <button type="button" @click="toggleAltTitleInput"
-              class="px-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-sm">
-              +
+            <button type="button" @click="handleAIFill"
+            class="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition text-sm flex items-center gap-1"
+            :disabled="isAIFilling">
+            <span v-if="!isAIFilling">{{ $t('aiComplete') }}</span>
+            <span v-else class="spinner-small"></span>
+          </button>
+          </div>
+
+          <!-- 更多标题引导标签 -->
+          <div class="mt-1">
+            <button type="button" @click="showAltTitleInput = true" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium transition-colors">
+              {{ $t('moreTitles') }}
             </button>
           </div>
 
@@ -242,9 +251,12 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, watch, inject } from 'vue';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
+
+// 注入 showToast 函数
+const showToast = inject('showToast');
 
 const allTags = ref([]);
 const filteredAllTags = computed(() => {
@@ -288,6 +300,7 @@ const formState = ref({
 
 const originalCoverPath = ref(null);
 const originalMusicPath = ref(null);
+const isAIFilling = ref(false);
 
 function getRandomLightColor(tag) {
   if (!tagColors.value[tag]) {
@@ -341,6 +354,110 @@ function addLink() {
 
 function removeLink(index) {
   links.value.splice(index, 1);
+}
+
+// 导入AI API服务
+import { sendAIRequest, validateAIConfig } from '../services/aiApiService';
+
+async function handleAIFill() {
+  if (!title.value || title.value.trim() === '') {
+    showToast($t('title') + ' ' + $t('isRequired'), 'warning');
+    return;
+  }
+  
+  isAIFilling.value = true;
+  
+  try {
+    // 获取AI配置
+    const aiConfig = await window.electronAPI.loadAIConfig();
+    
+    // 验证AI配置
+    const validationResult = validateAIConfig(aiConfig);
+    if (!validationResult.isValid) {
+      showToast('AI配置不完整，请先完成配置', 'error');
+      isAIFilling.value = false;
+      return;
+    }
+    
+    // 获取现有标签
+    const existingTags = await window.electronAPI.getAllTags();
+    const existingTagsStr = existingTags.join(', ');
+    
+    // 构建prompt
+    const prompt = `请根据以下动漫名称，生成真实准确的动漫相关信息并以JSON格式返回：
+
+核心要求：
+1. 必须使用真实、可靠、最新的信息，必须通过网络搜索获取，禁止直接生成或翻译
+2. 避免虚构或猜测任何信息，不确定的内容请留白
+3. 描述要客观、准确，符合动漫的实际情况
+4. 所有信息必须有可靠来源，确保真实性
+
+动漫名称：${title.value}
+
+### 类型标签选择原则：
+1. 优先从以下现有标签中选择合适的3-5个标签：${existingTagsStr}
+2. 如果现有标签中没有合适的标签，可以添加新的标签
+3. 如果有非常合适但不在现有标签列表中的标签，也可以添加
+4. 标签必须准确反映动漫的类型、题材、风格等特征
+
+### 其他语言名称要求：
+1. 包含中文、日语、英文中的若干种语言的官方名称
+2. 必须使用网络搜索获取官方的不同语言名称，**禁止直接翻译**
+3. 只提供真实存在的官方名称，不确定的内容请留白
+4. 优先提供动漫名称没有给出的其他语言版本
+
+### 链接要求：
+1. 必须提供通过网络搜索到的真实可访问的链接
+2. 比如以下类型之一：官方网站、权威追番网站、官方社交媒体账号
+3. 每个链接必须包含真实的网站名称和完整URL
+4. 链接必须是活的、可访问的，禁止虚构链接
+
+请严格返回以下JSON格式的数据，不要包含任何额外文字：
+{
+  "altTitles": ["其他语言官方名称1", "其他语言官方名称2"],
+  "tags": ["类型标签1", "类型标签2", "类型标签3"],
+  "description": "动漫简介，100-200字，必须真实准确",
+  "links": [
+    {
+      "name": "网站真实名称",
+      "url": "完整的真实URL"
+    }
+  ]
+}`;
+    
+    // 发送AI请求，增加超时时间到60秒
+    const aiResponse = await sendAIRequest(aiConfig, prompt, 60000);
+    
+    // 填充表单
+    if (aiResponse.altTitles && Array.isArray(aiResponse.altTitles)) {
+      altTitles.value = aiResponse.altTitles;
+    }
+    
+    if (aiResponse.tags && Array.isArray(aiResponse.tags)) {
+      aiResponse.tags.forEach(tag => {
+        if (!tags.value.includes(tag)) {
+          tags.value.push(tag);
+          getRandomLightColor(tag);
+        }
+      });
+    }
+    
+    if (aiResponse.description && typeof aiResponse.description === 'string') {
+      description.value = aiResponse.description;
+    }
+    
+    if (aiResponse.links && Array.isArray(aiResponse.links)) {
+      links.value = aiResponse.links;
+    }
+    
+    showEscHint.value = false;
+    console.log('AI填写成功');
+  } catch (error) {
+    console.error('AI填写失败:', error);
+    showToast('AI填写失败: ' + error.message, 'error');
+  } finally {
+    isAIFilling.value = false;
+  }
 }
 
 watch(() => props.initialEntry, entry => {
@@ -481,11 +598,13 @@ async function selectMusic() {
 }
 
 function initCropper() {
-  if (cropperInstance) cropopperInstance.destroy();
+  if (cropperInstance) cropperInstance.destroy();
   cropperInstance = new Cropper(cropperImgRef.value, {
     aspectRatio: 2 / 1,
-    viewMode: 1,
+    viewMode: 0,
     autoCrop: true,
+    autoCropArea: 1,
+    contain: true
   });
   // 等下一次 DOM 更新周期再强制裁剪一次
   nextTick(() => {
@@ -518,21 +637,32 @@ function cropImage() {
 }
 
 async function onSubmit() {
+  // 如果没有上传封面图片，使用默认的 SVG
   if (!previewImageUrl.value) {
-    alert('请选择封面图片');
-    return;
+    // 默认 SVG 图片（一个简单的动漫风格封面）
+    const defaultSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="800" height="400" fill="url(#bg)" />
+      <circle cx="400" cy="200" r="120" fill="none" stroke="white" stroke-width="4" opacity="0.3" />
+      <path d="M360 180 L400 120 L440 180 Z" fill="white" opacity="0.5" />
+      <rect x="320" y="220" width="160" height="80" rx="10" fill="white" opacity="0.3" />
+      <text x="400" y="265" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">ANIME</text>
+    </svg>`;
+    previewImageUrl.value = defaultSvg;
   }
 
   if (cropperInstance) {
     const cropSuccess = await cropImage();
     if (!cropSuccess) {
-      alert('裁剪失败，请重试');
+      showToast('裁剪失败，请重试', 'warning');
       return;
     }
     coverPath.value = previewImageUrl.value;
-  } else if (!previewImageUrl.value.startsWith('data:image')) {
-    alert('请先选择图片或应用裁剪');
-    return;
   }
 
   const filename = `${Date.now()}.png`;
@@ -564,17 +694,38 @@ async function onSubmit() {
       await window.electronAPI.deleteFile(originalMusicPath.value);
     }
     await window.electronAPI.updateEntry(entry);
+    // 更新成功显示 Toast
+    showToast('条目更新成功', 'success');
   } else {
     await window.electronAPI.saveEntry(entry);
+    // 保存成功显示 Toast
+    showToast('条目保存成功', 'success');
   }
 
   resetForm();
   formState.value.isEditing = false;
   window.dispatchEvent(new Event('entry-saved'));
+  // 关闭模态框，防止显示空表单
+  window.dispatchEvent(new Event('close-form'));
 }
 </script>
 
 <style scoped>
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin-small 0.8s linear infinite;
+}
+
+@keyframes spin-small {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 动画效果 */
 button {
   transition: all 0.2s ease;

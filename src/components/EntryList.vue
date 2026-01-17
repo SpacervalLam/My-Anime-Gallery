@@ -41,7 +41,7 @@
 
     <!-- 标签筛选导航 -->
     <div class="tags-filter">
-      <div class="filter-header" @click="isTagsExpanded = !isTagsExpanded">
+      <div class="filter-header" @click.stop="isTagsExpanded = !isTagsExpanded">
         <svg class="filter-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
@@ -96,7 +96,7 @@
 
     <!-- 条目列表 -->
     <div v-else class="entries-container" :class="{ 'compact-view': isCompactView }">
-      <div v-for="item in filteredEntries()" :key="item.id" class="swipe-container"
+      <div v-for="item in filteredEntries()" :key="item.id" class="swipe-container" :data-id="item.id"
         @pointerdown="handleStart($event, item.id)" @pointermove="handleMove($event, item.id)"
         @pointerup="handleEnd(item.id)" @pointercancel="handleEnd(item.id)">
 
@@ -175,15 +175,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 
 // 声明会向父组件抛出的事件
 const emit = defineEmits(['result-click']);
+const showToast = inject('showToast'); // 注入Toast函数
 
 const isCompactView = ref(false); // 添加视图状态
 const startTime = ref(0);
 const MAX_CLICK_TIME = 150;    // ms
-const MAX_CLICK_DISTANCE = 3;  // px
+const MAX_CLICK_DISTANCE = 1;  // px，减小触发距离，使滑动更灵敏
 
 // 切换视图函数
 function toggleView() {
@@ -201,6 +202,32 @@ const openCardId = ref(null);
 const fixedStates = ref({});
 const isTagsExpanded = ref(false); // 默认折叠标签区域
 const tagColors = ref({});
+
+// 滑动优化相关状态
+const lastMoveX = ref(0); // 记录上一次移动的X坐标
+const moveHistory = ref([]); // 记录最近的移动点，用于计算速度
+const inertiaFactor = ref(0.1); // 惯性系数
+const dampingFactor = ref(0.95); // 阻尼系数
+const boundaryResistance = ref(0.5); // 边界阻力系数
+const MAX_SWIPE_DISTANCE = -140; // 最大滑动距离
+const SWIPE_THRESHOLD = -100; // 滑动阈值
+const BOUNDARY_RESISTANCE_START = -100; // 开始边界阻力的位置
+
+// 小图模式下的滑动参数调整
+const getSwipeParams = () => {
+  if (isCompactView.value) {
+    return {
+      maxSwipeDistance: -80, // 小图模式下减小最大滑动距离
+      swipeThreshold: -60, // 小图模式下减小滑动阈值
+      boundaryResistanceStart: -60 // 小图模式下减小边界阻力开始位置
+    };
+  }
+  return {
+    maxSwipeDistance: MAX_SWIPE_DISTANCE,
+    swipeThreshold: SWIPE_THRESHOLD,
+    boundaryResistanceStart: BOUNDARY_RESISTANCE_START
+  };
+};
 
 function getRandomLightColor(tag) {
   if (!tagColors.value[tag]) {
@@ -220,9 +247,11 @@ function handleStart(e, id) {
   }
 
   startX.value = e.clientX;
+  lastMoveX.value = e.clientX;
   startTime.value = Date.now(); // 记录按下时刻
   isDragging.value = false; // 初始设为false
   currentDragId.value = id;
+  moveHistory.value = []; // 清空移动历史
 }
 
 function handleMove(e, id) {
@@ -233,15 +262,43 @@ function handleMove(e, id) {
 
   if (currentDragId.value !== id) return;
 
-  const deltaX = e.clientX - startX.value;
+  const clientX = e.clientX;
+  const deltaX = clientX - startX.value;
+  
+  // 计算移动距离和速度
+  const moveDelta = clientX - lastMoveX.value;
+  const timestamp = Date.now();
+  
+  // 记录移动历史，保留最近10个点用于速度计算
+  moveHistory.value.push({ x: clientX, timestamp });
+  if (moveHistory.value.length > 10) {
+    moveHistory.value.shift();
+  }
+  
   if (Math.abs(deltaX) > MAX_CLICK_DISTANCE) {
     isDragging.value = true;
   }
 
   if (isDragging.value) {
-    const limited = Math.min(Math.max(deltaX, -140), 0);
-    swipePositions.value[id] = limited;
+    let finalDeltaX = deltaX;
+    
+    // 获取动态滑动参数
+    const { boundaryResistanceStart, maxSwipeDistance } = getSwipeParams();
+    
+    // 应用边界阻力
+    if (deltaX < boundaryResistanceStart) {
+      // 左侧边界阻力
+      const resistanceFactor = 1 + ((boundaryResistanceStart - deltaX) * boundaryResistance.value / 100);
+      finalDeltaX = boundaryResistanceStart + (deltaX - boundaryResistanceStart) / resistanceFactor;
+    }
+    
+    // 限制最大滑动距离
+    finalDeltaX = Math.min(Math.max(finalDeltaX, maxSwipeDistance), 0);
+    
+    swipePositions.value[id] = finalDeltaX;
   }
+  
+  lastMoveX.value = clientX;
 }
 
 function handleEnd(id) {
@@ -262,16 +319,43 @@ function handleEnd(id) {
 
   // 拖拽处理
   if (isDragging.value && currentDragId.value === id) {
-    const threshold = -100;
-    if (pos < threshold) {
-      swipePositions.value[id] = -115;
+    // 计算滑动速度
+    let velocity = 0;
+    if (moveHistory.value.length >= 2) {
+      const firstPoint = moveHistory.value[0];
+      const lastPoint = moveHistory.value[moveHistory.value.length - 1];
+      const timeDiff = lastPoint.timestamp - firstPoint.timestamp;
+      if (timeDiff > 0) {
+        velocity = (lastPoint.x - firstPoint.x) / timeDiff;
+      }
+    }
+    
+    // 应用惯性
+    let finalPosition = pos;
+    
+    // 获取动态滑动参数
+    const { swipeThreshold, maxSwipeDistance } = getSwipeParams();
+    const threshold = swipeThreshold;
+    
+    // 计算惯性距离
+    const inertiaDistance = velocity * 50; // 速度乘以惯性系数
+    finalPosition += inertiaDistance;
+    
+    // 应用阻尼和边界限制
+    if (finalPosition < threshold) {
+      // 滑动到打开状态
+      finalPosition = maxSwipeDistance;
       fixedStates.value[id] = true;
       openCardId.value = id;
     } else {
-      swipePositions.value[id] = 0;
+      // 滑动到关闭状态
+      finalPosition = 0;
       fixedStates.value[id] = false;
       openCardId.value = null;
     }
+    
+    // 使用动画平滑过渡到最终位置
+    animateToPosition(id, finalPosition, 300);
   } else {
     swipePositions.value[id] = 0;
     fixedStates.value[id] = false;
@@ -280,6 +364,34 @@ function handleEnd(id) {
 
   isDragging.value = false;
   currentDragId.value = null;
+}
+
+// 平滑动画过渡函数
+function animateToPosition(id, targetPosition, duration) {
+  const startPosition = swipePositions.value[id] || 0;
+  const startTime = Date.now();
+  
+  function animate() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // 使用缓动函数使动画更自然
+    const easedProgress = easeOutCubic(progress);
+    
+    const currentPosition = startPosition + (targetPosition - startPosition) * easedProgress;
+    swipePositions.value[id] = currentPosition;
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  
+  animate();
+}
+
+// 缓动函数
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
 }
 
 async function load() {
@@ -294,6 +406,9 @@ async function load() {
     console.error('Failed to load entries:', error);
     entries.value = [];
     allTags.value = [];
+    if (error.message !== 'electronAPI is not available') {
+      showToast('加载数据失败，请重试', 'error');
+    }
   }
 }
 
@@ -336,6 +451,7 @@ onUnmounted(() => {
 async function remove(id) {
   await window.electronAPI.deleteEntry(id);
   load();
+  showToast('动漫条目删除成功', 'success');
 }
 
 function edit(item) {
@@ -352,7 +468,8 @@ function handleClickOutside(e) {
   if (openCardId.value === null) return;
   const openEl = document.querySelector(`.swipe-container[data-id="${openCardId.value}"]`);
   if (openEl && !openEl.contains(e.target)) {
-    swipePositions.value[openCardId.value] = 0;
+    // 使用平滑动画过渡到初始位置
+    animateToPosition(openCardId.value, 0, 300);
     fixedStates.value[openCardId.value] = false;
     openCardId.value = null;
   }
@@ -653,17 +770,19 @@ function handleClickOutside(e) {
 }
 
 .compact-view .action-buttons {
-  width: 100px;
+  width: 80px;
+  gap: 4px;
 }
 
 .compact-view .action-button {
-  padding: 6px 8px;
-  font-size: 0.8rem;
+  padding: 4px 6px;
+  font-size: 0.7rem;
+  min-width: 36px;
 }
 
 .compact-view .button-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 /* 修复 line-clamp 的兼容性问题 */
@@ -946,8 +1065,10 @@ function handleClickOutside(e) {
   z-index: 2;
   background: white;
   border-radius: 14px;
-  transition: transform 0.3s ease;
+  transition: transform 0.1s linear;
   height: 100%;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 /* 动画：鼠标悬停和点击时，卡片轻微浮起、缩放和阴影变化 */

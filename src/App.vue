@@ -10,10 +10,6 @@
 
     <!-- 菜单栏 -->
     <div class="theme-menu" :class="{ visible: isMenuVisible }">
-      <!-- 主题切换 -->
-      <button class="theme-toggle" @click="toggleTheme">
-        {{ isDarkMode ? $t('lightMode') : $t('darkMode') }}
-      </button>
       <!-- 导出数据 -->
       <button class="menu-action" @click="openExportModal">
         {{ $t('exportData') }}
@@ -26,12 +22,23 @@
       <button class="menu-action" @click="openSettingsModal">
         {{ $t('settings') }}
       </button>
+      <!-- AI配置 -->
+      <button class="menu-action ai-config" @click="openAIConfigModal">
+        {{ $t('aiConfig') }}
+      </button>
+      <!-- 关闭应用 -->
+      <button class="menu-action close-app" @click="closeApp">
+        {{ $t('closeApp') }}
+      </button>
     </div>
 
     <!-- 主内容区 -->
     <div class="main-content">
       <BookFlip />
     </div>
+
+    <!-- 通知组件 -->
+    <ToastNotification ref="toastNotification" position="bottom-right" :duration="4000" />
 
     <!-- 导出数据模态框 -->
     <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
@@ -107,32 +114,99 @@
 
     <!-- 设置模态框 -->
     <Settings ref="settingsModal" />
+    
+    <!-- AI配置模态框 -->
+    <AIConfig v-model:show="showAIConfig" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, provide } from 'vue';
+import { ref, onMounted, onUnmounted, provide } from 'vue';
 import BookFlip from './components/BookFlip.vue';
 import Settings from './components/Settings.vue';
+import AIConfig from './components/AIConfig.vue';
+import ToastNotification from './components/ToastNotification.vue';
 
 // ------------------- 主题切换 -------------------
 const isDarkMode = ref(false);
 provide('isDarkMode', isDarkMode);
 
+// ------------------- 通知系统 -------------------
+const toastNotification = ref(null);
+
+// 通知服务函数
+const showToast = (message, type = 'info') => {
+  if (toastNotification.value) {
+    return toastNotification.value.addToast(message, type);
+  }
+  return null;
+};
+
+// 提供通知服务给所有子组件
+provide('showToast', showToast);
+
 const isMenuVisible = ref(false);
+const menuTriggerRef = ref(null);
+const themeMenuRef = ref(null);
+
 const toggleMenu = () => {
   isMenuVisible.value = !isMenuVisible.value;
 };
 
-const toggleTheme = () => {
-  isDarkMode.value = !isDarkMode.value;
-  document.documentElement.classList.toggle('dark', isDarkMode.value);
-  localStorage.setItem('darkMode', isDarkMode.value);
+const closeMenu = () => {
+  isMenuVisible.value = false;
 };
-onMounted(() => {
+
+// 点击外部关闭菜单
+const handleClickOutside = (event) => {
+  const menuTrigger = document.querySelector('.menu-trigger');
+  const themeMenu = document.querySelector('.theme-menu');
+  
+  if (menuTrigger && themeMenu && isMenuVisible.value) {
+    // 检查点击目标是否不在菜单和菜单按钮内
+    if (!menuTrigger.contains(event.target) && !themeMenu.contains(event.target)) {
+      closeMenu();
+    }
+  }
+};
+
+onMounted(async () => {
   const savedMode = localStorage.getItem('darkMode') === 'true';
   isDarkMode.value = savedMode;
   document.documentElement.classList.toggle('dark', savedMode);
+  
+  const savedTheme = localStorage.getItem('theme') || 'system';
+  if (savedTheme === 'system') {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      isDarkMode.value = true;
+      document.documentElement.classList.add('dark');
+    } else {
+      isDarkMode.value = false;
+      document.documentElement.classList.remove('dark');
+    }
+  } else if (savedTheme === 'dark') {
+    isDarkMode.value = true;
+    document.documentElement.classList.add('dark');
+  } else {
+    isDarkMode.value = false;
+    document.documentElement.classList.remove('dark');
+  }
+  
+  // 添加点击外部关闭菜单的事件监听
+  document.addEventListener('click', handleClickOutside);
+  
+  // 应用启动时自动加载AI配置（可选，可在需要时延迟加载）
+  try {
+    await window.electronAPI.loadAIConfig();
+    console.log('AI配置已加载');
+  } catch (error) {
+    console.error('加载AI配置失败:', error);
+  }
+});
+
+onUnmounted(() => {
+  // 移除事件监听
+  document.removeEventListener('click', handleClickOutside);
 });
 
 // ------------------- 导出相关 -------------------
@@ -163,7 +237,6 @@ const handleExport = async () => {
   exportMsg.value = '';
   exportStatus.value = '';
   try {
-    // 调用预加载层的 IPC，传递用户勾选选项
     const result = await window.electronAPI.exportData({
       includeImages: exportIncludeImages.value,
       includeMusic: exportIncludeMusic.value
@@ -172,14 +245,17 @@ const handleExport = async () => {
       archivePath = result.archivePath;
       exportMsg.value = `✔ ${$t('exportSuccess')}！路径：${archivePath}`;
       exportStatus.value = 'success';
+      showToast($t('exportSuccess'), 'success');
     } else {
-      exportMsg.value = `✖ ${$t('exportFailed')}：${result.message}`;
+      exportMsg.value = `✖ ${$t('exportFailed')}：${result.message || '未知错误'}`;
       exportStatus.value = 'error';
+      showToast($t('exportFailed') + '：' + (result.message || '未知错误'), 'error');
     }
   } catch (err) {
     console.error('导出异常：', err);
-    exportMsg.value = `✖ ${$t('exportException')}：${err.message}`;
+    exportMsg.value = `✖ ${$t('exportException')}：${err.message || '网络错误'}`;
     exportStatus.value = 'error';
+    showToast($t('exportException') + '：' + (err.message || '网络错误'), 'error');
   } finally {
     exporting.value = false;
   }
@@ -231,7 +307,6 @@ const handleImport = async () => {
         conflictTitles.value = result.conflictTitles;
       }
       
-      // 确保数据已更新后再触发刷新
       let retries = 0;
       const checkDataUpdated = async () => {
         try {
@@ -248,24 +323,43 @@ const handleImport = async () => {
         }
       };
       setTimeout(checkDataUpdated, 200);
+      
+      showToast($t('importComplete'), 'success');
     } else {
-      importMsg.value = `✖ ${$t('importFailed')}：${result.message}`;
+      importMsg.value = `✖ ${$t('importFailed')}：${result.message || '未知错误'}`;
       importStatus.value = 'error';
+      showToast($t('importFailed') + '：' + (result.message || '未知错误'), 'error');
     }
   } catch (err) {
     console.error('导入异常：', err);
-    importMsg.value = `✖ ${$t('importException')}：${err.message}`;
+    importMsg.value = `✖ ${$t('importException')}：${err.message || '文件读取错误'}`;
     importStatus.value = 'error';
+    showToast($t('importException') + '：' + (err.message || '文件读取错误'), 'error');
   } finally {
     importing.value = false;
   }
 };
 
 const settingsModal = ref(null);
+const showAIConfig = ref(false);
 
 // 打开设置模态框
 const openSettingsModal = () => {
   settingsModal.value?.open();
+};
+
+// 打开AI配置模态框
+const openAIConfigModal = () => {
+  showAIConfig.value = true;
+};
+
+// 关闭应用
+const closeApp = async () => {
+  try {
+    await window.electronAPI.closeApp();
+  } catch (error) {
+    console.error('关闭应用失败:', error);
+  }
 };
 </script>
 
@@ -329,6 +423,15 @@ html.dark, body.dark {
   font-weight: bold;
 }
 
+.ai-config {
+  position: relative;
+}
+
+.ai-icon {
+  margin-right: 8px;
+  font-size: 1.1rem;
+}
+
 /* 重构菜单栏样式 */
 .theme-menu {
   position: fixed;
@@ -372,19 +475,33 @@ html.dark, body.dark {
   font-size: 14px;
 }
 
-.theme-toggle:hover,
 .menu-action:hover {
   background: #f3f4f6;
 }
 
-.dark .theme-toggle,
 .dark .menu-action {
   color: white;
 }
 
-.dark .theme-toggle:hover,
 .dark .menu-action:hover {
   background: #334155;
+}
+
+.close-app {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.close-app:hover {
+  background: #fef2f2;
+}
+
+.dark .close-app {
+  color: #f87171;
+}
+
+.dark .close-app:hover {
+  background: #7f1d1d;
 }
 
 .main-content {
@@ -399,7 +516,7 @@ html.dark, body.dark {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;

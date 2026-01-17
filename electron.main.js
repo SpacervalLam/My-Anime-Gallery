@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const fetch = require('node-fetch')
+const AbortController = require('abort-controller')
+const { ProxyAgent } = require('proxy-agent');
 const os = require('os');
 const crypto = require('crypto');
 const mkdirp = require('mkdirp');
@@ -8,6 +11,19 @@ const archiver = require('archiver');
 const AdmZip = require('adm-zip');
 const { DataSource } = require('typeorm');
 const AnimeEntry = require(path.join(__dirname, 'database', 'entity', 'AnimeEntry'));
+
+// AI配置加密相关 - 移除加密功能，使用明文存储
+// 加密会导致配置无法正确读取，暂时移除
+
+// 移除加密功能，直接返回原始配置
+function encryptSensitiveInfo(config) {
+  return config;
+}
+
+// 移除解密功能，直接返回原始配置
+function decryptSensitiveInfo(config) {
+  return config;
+}
 
 const isDev = !app.isPackaged;
 let mainWindow = null;
@@ -58,7 +74,7 @@ async function createWindow() {
             img-src 'self' data: blob: file:;
             media-src 'self' data: blob: file:;
             font-src 'self' data: blob:;
-            connect-src 'self' ws: blob: file:;
+            connect-src 'self' http: https: ws: blob: file:;
             frame-src 'self' blob:;
           `.replace(/\s+/g, ' ')]
         }
@@ -78,17 +94,6 @@ async function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-
-  globalShortcut.register('CommandOrControl+Shift+D', () => {
-    const win = BrowserWindow.getFocusedWindow();
-    if (win) {
-      if (win.webContents.isDevToolsOpened()) {
-        win.webContents.closeDevTools();
-      } else {
-        win.webContents.openDevTools();
-      }
-    }
-  });
 });
 
 app.on('window-all-closed', () => {
@@ -116,7 +121,7 @@ ipcMain.handle('show-in-folder', async (event, filePath) => {
 // =============================================
 ipcMain.handle('export-anime-data', async (event, options) => {
   try {
-    // 3.1 弹出“选择导出目录”对话框
+    // 3.1 弹出"选择导出目录"对话框
     const { filePaths, canceled } = await dialog.showOpenDialog({
       title: '选择导出目录',
       buttonLabel: '导出到此处',
@@ -281,7 +286,7 @@ async function doExport(selectedDir, includeImages, includeMusic) {
    └── README.txt          # 本说明
 
 2. 导入方式：
-   使用本应用的“导入”功能，选择此目录中的 .spacerval 文件即可自动导入。
+   使用本应用的"导入"功能，选择此目录中的 .spacerval 文件即可自动导入。
   `.trim();
   fs.writeFileSync(path.join(workDir, 'README.txt'), readmeContent, 'utf-8');
 
@@ -474,7 +479,7 @@ function zipDirectory(sourceDir, outPath) {
 
 
 // =============================================
-// 8. 其余 IPC：图片裁剪、音乐导入、CRUD 操作等（保持不变）
+// 8. 其余 IPC：图片裁剪、音乐导入、CRUD 操作等
 // =============================================
 ipcMain.handle('dialog:openFile', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -487,16 +492,91 @@ ipcMain.handle('dialog:openFile', async () => {
 });
 ipcMain.handle('image:saveCropped', async (event, { dataURL, filename }) => {
   try {
-    const base64Data = dataURL.replace(/^data:image\/[a-z]+;base64,/, '');
+    // 参数验证
+    if (!dataURL || typeof dataURL !== 'string') {
+      throw new Error('无效的dataURL参数');
+    }
+    if (!filename || typeof filename !== 'string') {
+      throw new Error('无效的filename参数');
+    }
+    
+    // 验证并提取图片数据
+    const dataUrlRegex = /^data:image\/([a-z]+);(base64|utf8),/;
+    const match = dataURL.match(dataUrlRegex);
+    if (!match) {
+      throw new Error('dataURL格式无效，必须是有效的图片格式');
+    }
+    
+    const imageType = match[1];
+    const encoding = match[2];
+    const imageData = dataURL.replace(dataUrlRegex, '');
+    if (!imageData || imageData.length === 0) {
+      throw new Error('图片数据为空');
+    }
+    
+    // 处理不同编码格式的数据
+    let binaryData;
+    if (encoding === 'base64') {
+      // 验证base64数据的有效性
+      try {
+        binaryData = Buffer.from(imageData, 'base64');
+      } catch (base64Error) {
+        throw new Error('无效的base64数据：' + base64Error.message);
+      }
+    } else if (encoding === 'utf8') {
+      // UTF8编码直接转换为Buffer
+      binaryData = Buffer.from(imageData);
+    } else {
+      throw new Error('不支持的编码格式：' + encoding);
+    }
+    
+    // 确保保存目录存在
     const savePath = path.join(app.getPath('userData'), 'covers');
-    if (!fs.existsSync(savePath)) fs.mkdirSync(savePath, { recursive: true });
+    try {
+      if (!fs.existsSync(savePath)) {
+        fs.mkdirSync(savePath, { recursive: true });
+      }
+    } catch (mkdirError) {
+      throw new Error('无法创建保存目录：' + mkdirError.message);
+    }
+    
+    // 构建完整文件路径
     const filePath = path.join(savePath, filename);
-    fs.writeFileSync(filePath, base64Data, 'base64');
-    if (!fs.existsSync(filePath)) throw new Error('文件保存失败');
+    
+    // 写入文件，使用try-catch处理写入错误
+    try {
+      fs.writeFileSync(filePath, binaryData);
+    } catch (writeError) {
+      let errorMessage = '文件写入失败：';
+      if (writeError.code === 'EACCES') {
+        errorMessage += '权限不足，请检查目录权限';
+      } else if (writeError.code === 'ENOSPC') {
+        errorMessage += '磁盘空间不足';
+      } else {
+        errorMessage += writeError.message;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    // 验证文件是否成功创建
+    if (!fs.existsSync(filePath)) {
+      throw new Error('文件保存失败，无法验证文件存在');
+    }
+    
+    // 验证文件大小
+    const stats = fs.statSync(filePath);
+    if (stats.size === 0) {
+      fs.unlinkSync(filePath); // 删除空文件
+      throw new Error('文件保存失败，生成的文件为空');
+    }
+    
     return filePath;
   } catch (error) {
     console.error('保存图片失败：', error);
-    throw error;
+    console.error('错误堆栈：', error.stack);
+    
+    // 重新抛出更详细的错误信息，便于调试
+    throw new Error(`图片保存失败：${error.message}`);
   }
 });
 ipcMain.handle('dialog:openMusic', async () => {
@@ -620,9 +700,370 @@ ipcMain.handle('db:getRecommendedTags', async (event, tag) => {
   return recommendedTags;
 });
 
-// =============================================
-// 9. 应用关闭时退出
-// =============================================
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// 关闭应用
+ipcMain.handle('app:close', () => {
+  app.quit();
+});
+
+// 测试代理连接
+ipcMain.handle('ai:testProxyConnection', async (event, proxyConfig) => {
+  try {
+    // 构建代理URL
+    let proxyUrl;
+    if (proxyConfig.proxyAuth) {
+      proxyUrl = `${proxyConfig.proxyType}://${proxyConfig.proxyUsername}:${proxyConfig.proxyPassword}@${proxyConfig.proxyHost}:${proxyConfig.proxyPort}`;
+    } else {
+      proxyUrl = `${proxyConfig.proxyType}://${proxyConfig.proxyHost}:${proxyConfig.proxyPort}`;
+    }
+    
+    // 创建代理agent
+    const agent = new ProxyAgent(proxyUrl);
+    
+    // 使用AbortController实现超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 5000);
+    
+    // 测试连接到一个可靠的网站
+    const response = await fetch('https://www.baidu.com', {
+      method: 'GET',
+      agent,
+      signal: controller.signal
+    });
+    
+    // 清除超时定时器
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`代理测试失败，响应状态: ${response.status}`);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    throw error;
+  }
+});
+
+// 保存AI配置
+ipcMain.handle('ai:saveConfig', async (event, config) => {
+  try {
+    const aiConfigPath = path.join(app.getPath('userData'), 'ai-config.json');
+    
+    // 加密敏感信息
+    const encryptedConfig = encryptSensitiveInfo(config);
+    
+    // 添加配置版本控制和元数据
+    const configWithMeta = {
+      version: '1.0.0',
+      lastUpdated: new Date().toISOString(),
+      data: encryptedConfig
+    };
+    
+    await fs.promises.writeFile(aiConfigPath, JSON.stringify(configWithMeta, null, 2));
+    return { success: true };
+  } catch (error) {
+    console.error('保存AI配置失败:', error);
+    throw error;
+  }
+});
+
+// 读取AI配置
+ipcMain.handle('ai:loadConfig', async () => {
+  try {
+    const aiConfigPath = path.join(app.getPath('userData'), 'ai-config.json');
+    await fs.promises.access(aiConfigPath);
+    
+    const fileContent = await fs.promises.readFile(aiConfigPath, 'utf8');
+    const configWithMeta = JSON.parse(fileContent);
+    
+    let configData;
+    if (configWithMeta.version === '1.0.0') {
+      configData = configWithMeta.data;
+    } else if (configWithMeta.version) {
+      // 未来可以添加版本迁移逻辑
+      console.warn(`未知的配置版本: ${configWithMeta.version}`);
+      configData = configWithMeta.data;
+    } else {
+      // 兼容旧版本配置（没有版本信息的）
+      configData = configWithMeta;
+    }
+    
+    // 解密敏感信息
+    return decryptSensitiveInfo(configData);
+  } catch (error) {
+    // 文件不存在时返回null，其他错误打印日志并返回null
+    if (error.code !== 'ENOENT') {
+      console.error('读取AI配置失败:', error);
+    }
+    return null;
+  }
+});
+
+// 删除AI配置
+ipcMain.handle('ai:deleteConfig', async () => {
+  try {
+    const aiConfigPath = path.join(app.getPath('userData'), 'ai-config.json');
+    await fs.promises.access(aiConfigPath);
+    await fs.promises.unlink(aiConfigPath);
+    return { success: true };
+  } catch (error) {
+    // 文件不存在时仍返回成功，其他错误抛出
+    if (error.code !== 'ENOENT') {
+      console.error('删除AI配置失败:', error);
+      throw error;
+    }
+    return { success: true };
+  }
+});
+
+// 处理AI API请求
+ipcMain.handle('ai:sendRequest', async (event, aiConfig, prompt, timeout = 30000) => {
+  console.log('AI API请求处理开始:', aiConfig.provider, aiConfig.model);
+  
+  // 记录完整的AI配置，包括代理设置（隐藏敏感信息）
+  console.log('完整AI配置:', JSON.stringify({
+    provider: aiConfig.provider,
+    endpoint: aiConfig.endpoint,
+    useProxy: aiConfig.useProxy,
+    proxyType: aiConfig.proxyType,
+    proxyHost: aiConfig.proxyHost,
+    proxyPort: aiConfig.proxyPort,
+    proxyAuth: aiConfig.proxyAuth
+  }, null, 2));
+  
+  try {
+    const provider = aiConfig.provider || 'openai';
+    
+    // 构建基础请求配置
+    const requestConfig = {
+      url: aiConfig.endpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    // 构建请求体
+    let requestBody;
+    
+    switch (provider) {
+      case 'gemini':
+        // Google Gemini API格式
+        requestConfig.headers['x-goog-api-key'] = aiConfig.apiKey;
+        requestBody = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: (aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。') + '\n\n' + prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: aiConfig.temperature || 0.7,
+            maxOutputTokens: aiConfig.maxTokens || 2000
+          }
+        };
+        break;
+        
+      case 'baidu':
+        // 百度千帆API格式
+        requestConfig.headers['Authorization'] = `Bearer ${aiConfig.apiKey}`;
+        requestBody = {
+          model: aiConfig.model,
+          messages: [
+            {
+              role: 'system',
+              content: aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: aiConfig.temperature || 0.7,
+          max_tokens: aiConfig.maxTokens || 2000
+        };
+        break;
+        
+      case 'doubao':
+        // 火山引擎豆包API格式
+        requestConfig.headers['Authorization'] = `Bearer ${aiConfig.apiKey}`;
+        // 组合systemPrompt和prompt作为input
+        const combinedInput = (aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。') + '\n\n' + prompt;
+        requestBody = {
+          model: aiConfig.model,
+          input: combinedInput
+        };
+        break;
+        
+      default:
+        // OpenAI/Anthropic标准格式
+        requestConfig.headers['Authorization'] = `Bearer ${aiConfig.apiKey}`;
+        requestBody = {
+          model: aiConfig.model,
+          messages: [
+            {
+              role: 'system',
+              content: aiConfig.systemPrompt || '你是一个专业的动漫信息助手，帮助用户填写动漫相关信息'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: aiConfig.temperature || 0.7,
+          max_tokens: aiConfig.maxTokens || 2000
+        };
+        break;
+    }
+    
+    // 创建AbortController用于超时控制
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+    
+    // 记录请求配置（隐藏敏感信息）
+    const logHeaders = { ...requestConfig.headers };
+    for (const key in logHeaders) {
+      if (key.toLowerCase().includes('key') || key.toLowerCase().includes('token') || key.toLowerCase().includes('authorization')) {
+        logHeaders[key] = logHeaders[key].substring(0, 10) + '...';
+      }
+    }
+    console.log('发送AI请求到:', requestConfig.url);
+    console.log('请求头:', logHeaders);
+    console.log('请求体:', JSON.stringify(requestBody, null, 2));
+    
+    // 构建fetch选项
+    const fetchOptions = {
+      method: requestConfig.method,
+      headers: requestConfig.headers,
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    };
+    
+    // 添加代理配置（如果启用）
+    // 将proxyPort转换为字符串，处理null或undefined的情况
+    const proxyPortStr = aiConfig.proxyPort !== null && aiConfig.proxyPort !== undefined ? String(aiConfig.proxyPort) : '';
+    
+    console.log('代理配置检查:', {
+      useProxy: aiConfig.useProxy,
+      proxyHost: aiConfig.proxyHost,
+      proxyPort: aiConfig.proxyPort,
+      proxyPortStr: proxyPortStr,
+      meetsCriteria: aiConfig.useProxy && aiConfig.proxyHost && proxyPortStr
+    });
+    
+    if (aiConfig.useProxy && aiConfig.proxyHost && proxyPortStr) {
+      let proxyUrl;
+      if (aiConfig.proxyAuth) {
+        // 隐藏代理密码
+        proxyUrl = `${aiConfig.proxyType}://${aiConfig.proxyUsername}:******@${aiConfig.proxyHost}:${proxyPortStr}`;
+        // 实际使用的代理URL（包含密码）
+        const actualProxyUrl = `${aiConfig.proxyType}://${aiConfig.proxyUsername}:${aiConfig.proxyPassword}@${aiConfig.proxyHost}:${proxyPortStr}`;
+        const agent = new ProxyAgent(actualProxyUrl);
+        fetchOptions.agent = agent;
+      } else {
+        proxyUrl = `${aiConfig.proxyType}://${aiConfig.proxyHost}:${proxyPortStr}`;
+        const agent = new ProxyAgent(proxyUrl);
+        fetchOptions.agent = agent;
+      }
+      
+      console.log('构建代理URL:', proxyUrl);
+      console.log('代理已添加到请求选项中');
+    } else {
+      console.log('未使用代理，条件不满足');
+    }
+    
+    // 发送请求
+    const response = await fetch(requestConfig.url, fetchOptions);
+    
+    // 清除超时定时器
+    clearTimeout(timeoutId);
+    
+    console.log('AI请求响应状态:', response.status, response.statusText);
+    
+    // 检查响应状态
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error('AI API错误响应:', responseText);
+      throw new Error(`API请求失败: ${response.status} ${response.statusText}\n响应内容: ${responseText}`);
+    }
+    
+    // 解析响应体
+    const responseData = await response.json();
+    console.log('AI API原始响应:', responseData);
+    
+    // 根据提供商解析响应
+    let content = '';
+    
+    switch (provider) {
+      case 'gemini':
+        // 解析Google Gemini响应
+        if (responseData.candidates && responseData.candidates.length > 0) {
+          if (responseData.candidates[0].content && responseData.candidates[0].content.parts) {
+            for (const part of responseData.candidates[0].content.parts) {
+              if (part.text) {
+                content += part.text;
+              }
+            }
+          }
+        }
+        break;
+        
+      case 'baidu':
+        // 解析百度千帆响应
+        if (responseData.choices && responseData.choices.length > 0) {
+          if (responseData.choices[0].message && responseData.choices[0].message.content) {
+            content = responseData.choices[0].message.content;
+          }
+        }
+        break;
+        
+      case 'doubao':
+        // 解析火山引擎豆包响应
+        if (responseData.output && responseData.output.length > 0) {
+          // 找到assistant角色的message
+          const assistantMessage = responseData.output.find(item => 
+            item.type === 'message' && item.role === 'assistant'
+          );
+          if (assistantMessage && assistantMessage.content && assistantMessage.content.length > 0) {
+            // 提取text内容
+            const textContent = assistantMessage.content.find(contentItem => 
+              contentItem.type === 'output_text'
+            );
+            if (textContent && textContent.text) {
+              content = textContent.text;
+            }
+          }
+        }
+        break;
+        
+      default:
+        // 解析OpenAI/Anthropic等响应
+        if (responseData.choices && responseData.choices.length > 0) {
+          if (responseData.choices[0].message && responseData.choices[0].message.content) {
+            content = responseData.choices[0].message.content;
+          }
+        }
+        break;
+    }
+    
+    console.log('提取的AI响应内容:', content);
+    
+    // 解析JSON内容
+    try {
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('JSON解析错误:', error, '响应内容:', content);
+      throw new Error(`响应内容不是有效的JSON格式: ${content.substring(0, 100)}...`);
+    }
+    
+  } catch (error) {
+    console.error('AI API请求处理错误:', error);
+    throw error;
+  }
 });

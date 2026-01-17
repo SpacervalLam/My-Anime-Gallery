@@ -1,13 +1,13 @@
 <template>
   <div class="search-container">
     <div class="search-wrapper">
-      <div class="search-input-container">
+      <div class="search-input-container" @click="focusSearchInput">
         <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <input v-model="searchQuery" :placeholder="$t('search')" class="search-input" @input="onInput" @keydown="onKeyDown"
+        <input v-model="searchQuery" ref="searchInputRef" :placeholder="$t('search')" class="search-input" @input="onInput" @keydown="onKeyDown"
           @focus="isFocused = true" @blur="isFocused = false" />
         <div v-if="searchQuery" class="clear-btn" @click="clearSearch">
           <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -47,15 +47,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch, inject } from 'vue';
 
 const emit = defineEmits(['result-click']); // 通知父组件：用户点击了某个建议条目，参数是条目的 id
+const showToast = inject('showToast'); // 注入Toast函数
 const searchQuery = ref('');
 const entries = ref([]);
 const suggestions = ref([]);
 const isFocused = ref(false);
 const highlightedIndex = ref(-1);
 const suggestionListRef = ref(null);
+const searchInputRef = ref(null);
+
+function focusSearchInput() {
+  searchInputRef.value?.focus();
+}
 
 async function loadEntries() {
   try {
@@ -67,6 +73,9 @@ async function loadEntries() {
   } catch (error) {
     console.error('Failed to load entries:', error);
     entries.value = [];
+    if (error.message !== 'electronAPI is not available') {
+      showToast('加载数据失败，请重试', 'error');
+    }
   }
 }
 
