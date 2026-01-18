@@ -22,8 +22,24 @@
         <div v-for="(item, index) in suggestions" :key="item.id" class="suggestion-item"
           :class="{ highlighted: index === highlightedIndex }" @click="selectSuggestion(item)">
           <div class="suggestion-image-wrapper">
-            <img v-if="item.coverPath" :src="`file://${item.coverPath}`" class="suggestion-image" :alt="$t('cover')" />
-            <div v-else class="suggestion-image placeholder"></div>
+            <template v-if="item.coverPath">
+              <img :src="`file://${item.coverPath}`" class="suggestion-image" :alt="$t('cover')" />
+            </template>
+            <template v-else>
+              <!-- 默认SVG封面 -->
+              <svg class="suggestion-image" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#E2E8F0" />
+                    <stop offset="100%" style="stop-color:#CBD5E1" />
+                  </linearGradient>
+                </defs>
+                
+                <rect width="400" height="200" rx="16" fill="url(#bgGrad)"/>
+                
+                <text x="200" y="100" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14" letter-spacing="2" opacity="0.9">NO CONTENT AVAILABLE</text>
+              </svg>
+            </template>
           </div>
           <div class="suggestion-content">
             <div class="suggestion-title">{{ item.title }}</div>
@@ -48,7 +64,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, inject } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const emit = defineEmits(['result-click']); // 通知父组件：用户点击了某个建议条目，参数是条目的 id
 const showToast = inject('showToast'); // 注入Toast函数
 const searchQuery = ref('');
@@ -74,7 +92,7 @@ async function loadEntries() {
     console.error('Failed to load entries:', error);
     entries.value = [];
     if (error.message !== 'electronAPI is not available') {
-      showToast('加载数据失败，请重试', 'error');
+      showToast(t('loadDataFailed'), 'error');
     }
   }
 }

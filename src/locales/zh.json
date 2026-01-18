@@ -114,6 +114,7 @@
   "aiFillHint": "点击使用AI自动填写表单",
   "aiComplete": "AI补全",
   "isRequired": "不能为空",
+  "moreTitles": "更多标题",
   "closeApp": "关闭应用",
   "proxySettings": "代理设置",
   "enableProxy": "启用代理",
@@ -133,5 +134,17 @@
   "proxyConnectionFailed": "代理连接失败",
   "unknownError": "未知错误",
   "aiConfigSaveSuccess": "模型配置保存成功",
-  "pleaseRetry": "请重试"
+  "pleaseRetry": "请重试",
+  "switchedToDarkMode": "已切换至深色模式",
+  "switchedToLightMode": "已切换至浅色模式",
+  "settingsSaved": "设置保存成功",
+  "volumeAdjustedTo": "音量已调整为 {value}%",
+  "loadDataFailed": "加载数据失败，请重试",
+  "animeEntryDeleted": "动漫条目删除成功",
+  "aiConfigIncomplete": "AI配置不完整，请先完成配置",
+  "aiFillFailed": "AI填写失败",
+  "cropFailed": "裁剪失败，请重试",
+  "pleaseSelectImageOrCrop": "请先选择图片或应用裁剪",
+  "entryUpdatedSuccess": "条目更新成功",
+  "entrySavedSuccess": "条目保存成功"
 }

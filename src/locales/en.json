@@ -114,6 +114,7 @@
   "aiFillHint": "Click to use AI to automatically fill form",
   "aiComplete": "AI Complete",
   "isRequired": "is required",
+  "moreTitles": "More Titles",
   "closeApp": "Close App",
   "proxySettings": "Proxy Settings",
   "enableProxy": "Enable Proxy",
@@ -133,5 +134,17 @@
   "proxyConnectionFailed": "Proxy connection failed",
   "unknownError": "Unknown error",
   "aiConfigSaveSuccess": "AI config saved successfully",
-  "pleaseRetry": "Please retry"
+  "pleaseRetry": "Please retry",
+  "switchedToDarkMode": "Switched to dark mode",
+  "switchedToLightMode": "Switched to light mode",
+  "settingsSaved": "Settings saved successfully",
+  "volumeAdjustedTo": "Volume adjusted to {value}%",
+  "loadDataFailed": "Failed to load data, please try again",
+  "animeEntryDeleted": "Anime entry deleted successfully",
+  "aiConfigIncomplete": "AI configuration is incomplete, please complete the configuration first",
+  "aiFillFailed": "AI fill failed",
+  "cropFailed": "Crop failed, please try again",
+  "pleaseSelectImageOrCrop": "Please select an image or apply crop first",
+  "entryUpdatedSuccess": "Entry updated successfully",
+  "entrySavedSuccess": "Entry saved successfully"
 }

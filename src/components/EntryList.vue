@@ -106,18 +106,24 @@
             <div class="entry-content">
               <!-- 封面图片 -->
               <div class="cover-container" :class="{ 'compact': isCompactView }">
-                <img :src="`file://${item.coverPath}`" :alt="$t('cover')" class="cover-image"
-                  v-if="item.coverPath && item.coverPath !== ''" />
-                <div class="cover-placeholder" v-else>
-                  <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M4 16L8.5 10.5L11 13.5L14.5 9L16 11L20 7V16C20 18.2091 18.2091 20 16 20H8C5.79086 20 4 18.2091 4 16V16Z"
-                      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M4 16V7C4 4.79086 5.79086 3 8 3H16C18.2091 3 20 4.79086 20 7V7" stroke="currentColor"
-                      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                    <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5" />
+                <template v-if="item.coverPath && item.coverPath !== ''">
+                  <img :src="`file://${item.coverPath}`" :alt="$t('cover')" class="cover-image" />
+                </template>
+                <template v-else>
+                  <!-- 默认SVG封面 -->
+                  <svg class="cover-image" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#E2E8F0" />
+                        <stop offset="100%" style="stop-color:#CBD5E1" />
+                      </linearGradient>
+                    </defs>
+                    
+                    <rect width="400" height="200" rx="16" fill="url(#bgGrad)"/>
+                    
+                    <text x="200" y="100" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14" letter-spacing="2" opacity="0.9">NO CONTENT AVAILABLE</text>
                   </svg>
-                </div>
+                </template>
               </div>
 
               <!-- 内容区域 -->
@@ -176,7 +182,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, inject } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 // 声明会向父组件抛出的事件
 const emit = defineEmits(['result-click']);
 const showToast = inject('showToast'); // 注入Toast函数
@@ -209,9 +217,9 @@ const moveHistory = ref([]); // 记录最近的移动点，用于计算速度
 const inertiaFactor = ref(0.1); // 惯性系数
 const dampingFactor = ref(0.95); // 阻尼系数
 const boundaryResistance = ref(0.5); // 边界阻力系数
-const MAX_SWIPE_DISTANCE = -140; // 最大滑动距离
-const SWIPE_THRESHOLD = -100; // 滑动阈值
-const BOUNDARY_RESISTANCE_START = -100; // 开始边界阻力的位置
+const MAX_SWIPE_DISTANCE = -110; // 最大滑动距离，与操作按钮容器宽度一致
+const SWIPE_THRESHOLD = -80; // 滑动阈值
+const BOUNDARY_RESISTANCE_START = -80; // 开始边界阻力的位置
 
 // 小图模式下的滑动参数调整
 const getSwipeParams = () => {
@@ -407,7 +415,7 @@ async function load() {
     entries.value = [];
     allTags.value = [];
     if (error.message !== 'electronAPI is not available') {
-      showToast('加载数据失败，请重试', 'error');
+      showToast(t('loadDataFailed'), 'error');
     }
   }
 }
@@ -436,6 +444,10 @@ onMounted(() => {
   window.addEventListener('entry-saved', load);
   document.addEventListener('click', handleClickOutside);
   
+  // 添加全局鼠标事件监听，确保在任何情况下都能重置拖动状态
+  document.addEventListener('pointerup', handleGlobalPointerUp);
+  document.addEventListener('pointerleave', handleGlobalPointerUp);
+  
   // 添加数据更新监听
   if (window.electronAPI && window.electronAPI.onDataUpdated) {
     const cleanup = window.electronAPI.onDataUpdated(load);
@@ -446,12 +458,22 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('entry-saved', load);
   document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('pointerup', handleGlobalPointerUp);
+  document.removeEventListener('pointerleave', handleGlobalPointerUp);
 });
+
+// 全局鼠标松开事件处理函数，确保在任何情况下都能重置拖动状态
+function handleGlobalPointerUp() {
+  if (isDragging.value && currentDragId.value) {
+    // 调用对应的handleEnd函数，确保滑块状态正确处理
+    handleEnd(currentDragId.value);
+  }
+}
 
 async function remove(id) {
   await window.electronAPI.deleteEntry(id);
   load();
-  showToast('动漫条目删除成功', 'success');
+  showToast(t('animeEntryDeleted'), 'success');
 }
 
 function edit(item) {

@@ -61,11 +61,33 @@
 
       <!-- 封面图片 -->
       <div class="cover-container">
-        <img
-          :src="entry.coverPath ? `file://${entry.coverPath}` : '/images/placeholder.jpg'"
-          class="cover-image"
-          :alt="$t('coverImage')"
-        />
+        <template v-if="entry.coverPath">
+          <img
+            :src="`file://${entry.coverPath}`"
+            class="cover-image"
+            :alt="$t('coverImage')"
+          />
+        </template>
+        <template v-else>
+          <!-- 默认SVG封面 -->
+          <svg
+            class="cover-image"
+            viewBox="0 0 400 200"
+            xmlns="http://www.w3.org/2000/svg"
+            :alt="$t('coverImage')"
+          >
+            <defs>
+              <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#E2E8F0" />
+                <stop offset="100%" style="stop-color:#CBD5E1" />
+              </linearGradient>
+            </defs>
+            
+            <rect width="400" height="200" rx="16" fill="url(#bgGrad)"/>
+            
+            <text x="200" y="100" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14" letter-spacing="2" opacity="0.9">NO CONTENT AVAILABLE</text>
+          </svg>
+        </template>
       </div>
 
       <!-- 信息区域 -->
@@ -167,9 +189,15 @@ const entry = ref(null);
 const loading = ref(false);
 const audioEl = ref(null);
 const isMuted = ref(false);
+const currentVolume = ref(50); // 音量值（0-100）
 
 // 是否有背景音乐
 const hasMusic = computed(() => !!entry.value?.music);
+
+// 获取当前音量（0-1，用于音频元素）
+const getAudioVolume = () => {
+  return currentVolume.value / 100;
+};
 
 // 解析其他标题（JSON 字符串或直接文本）
 const parseAltTitles = (altTitles) => {
@@ -251,7 +279,7 @@ const handleLinkClick = (url) => {
 const playMusic = () => {
   if (!audioEl.value || !hasMusic.value) return;
   audioEl.value.src = `file://${entry.value.music}`;
-  audioEl.value.volume = 0.5;
+  audioEl.value.volume = getAudioVolume();
   audioEl.value.muted = isMuted.value;
   audioEl.value.play().catch((e) => console.error('播放失败', e));
 };
@@ -285,6 +313,15 @@ const fetchEntry = async () => {
   }
 };
 
+// 监听全局音量变化事件
+const handleVolumeChanged = (event) => {
+  const newVolume = event.detail;
+  currentVolume.value = newVolume;
+  if (audioEl.value && hasMusic.value) {
+    audioEl.value.volume = getAudioVolume();
+  }
+};
+
 // 当 props.entryId 变化时重新拉取
 watch(() => props.entryId, fetchEntry, { immediate: true });
 
@@ -300,11 +337,19 @@ watch(
 );
 
 onMounted(() => {
+  // 从localStorage获取保存的音量设置
+  const savedVolume = localStorage.getItem('volume');
+  if (savedVolume) {
+    currentVolume.value = parseInt(savedVolume);
+  }
+
   const handleEntrySaved = () => {
     fetchEntry();
   };
 
+  // 添加事件监听
   window.addEventListener('entry-saved', handleEntrySaved);
+  window.addEventListener('volume-changed', handleVolumeChanged);
 
   // 组件卸载时，停止音乐并清空 src
   return () => {
@@ -313,6 +358,7 @@ onMounted(() => {
       audioEl.value.src = '';
     }
     window.removeEventListener('entry-saved', handleEntrySaved);
+    window.removeEventListener('volume-changed', handleVolumeChanged);
   };
 });
 </script>

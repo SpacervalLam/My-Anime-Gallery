@@ -81,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, inject, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, inject, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { currentLanguage } from '../main.js'
 
@@ -96,6 +96,12 @@ const language = ref('en')
 const theme = ref('system')
 
 const isDarkMode = inject('isDarkMode')
+
+// 从localStorage获取保存的音量设置
+const savedVolume = localStorage.getItem('volume')
+if (savedVolume) {
+  volume.value = parseInt(savedVolume)
+}
 
 let mediaQuery = null
 
@@ -121,20 +127,20 @@ const setTheme = (newTheme) => {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       isDarkMode.value = true
       document.documentElement.classList.add('dark')
-      showToast('已切换至深色模式', 'success')
+      showToast(t('switchedToDarkMode'), 'success')
     } else {
       isDarkMode.value = false
       document.documentElement.classList.remove('dark')
-      showToast('已切换至浅色模式', 'success')
+      showToast(t('switchedToLightMode'), 'success')
     }
   } else if (newTheme === 'dark') {
     isDarkMode.value = true
     document.documentElement.classList.add('dark')
-    showToast('已切换至深色模式', 'success')
+    showToast(t('switchedToDarkMode'), 'success')
   } else {
     isDarkMode.value = false
     document.documentElement.classList.remove('dark')
-    showToast('已切换至浅色模式', 'success')
+    showToast(t('switchedToLightMode'), 'success')
   }
 }
 
@@ -147,23 +153,24 @@ const saveSettings = () => {
   localStorage.setItem('theme', theme.value)
   localStorage.setItem('volume', volume.value)
   localStorage.setItem('language', language.value)
+  
+  // 直接更新i18n的locale，确保showToast使用最新语言
   currentLanguage.value = language.value
-  showToast('设置保存成功', 'success')
-  close()
+  
+  // 使用nextTick确保i18n更新后再显示Toast
+  nextTick(() => {
+    showToast(t('settingsSaved'), 'success')
+    close()
+  })
 }
 
-// 监听音量变化
-let volumeTimeout = null
+// 监听音量变化，移除Toast提示并触发全局事件
 watch(volume, (newVolume) => {
   if (isVisible.value) {
-    // 清除之前的定时器
-    if (volumeTimeout) {
-      clearTimeout(volumeTimeout)
-    }
-    // 延迟显示Toast，避免频繁触发
-    volumeTimeout = setTimeout(() => {
-      showToast(`音量已调整为 ${newVolume}%`, 'info')
-    }, 300)
+    // 直接保存音量设置，不显示Toast
+    localStorage.setItem('volume', newVolume)
+    // 触发全局音量变化事件
+    window.dispatchEvent(new CustomEvent('volume-changed', { detail: newVolume }))
   }
 })
 
@@ -175,10 +182,7 @@ watch(language, (newLanguage) => {
     if (languageTimeout) {
       clearTimeout(languageTimeout)
     }
-    // 延迟显示Toast，避免频繁触发
-    languageTimeout = setTimeout(() => {
-      showToast('语言已切换', 'success')
-    }, 300)
+    // 语言切换不再显示Toast提示
   }
 })
 

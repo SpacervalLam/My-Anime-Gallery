@@ -6,15 +6,24 @@
         class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-100">
         <!-- 封面预览区域 -->
         <div class="relative aspect-[2/1] bg-gradient-to-br from-gray-50 to-gray-100">
-          <img v-if="previewImageUrl" :src="previewImageUrl" class="absolute inset-0 w-full h-full object-cover" />
-          <div v-else class="flex flex-col items-center justify-center h-full text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <template v-if="previewImageUrl">
+            <img :src="previewImageUrl" class="absolute inset-0 w-full h-full object-cover" />
+          </template>
+          <template v-else>
+            <!-- 默认SVG封面 -->
+            <svg class="absolute inset-0 w-full h-full object-cover" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#E2E8F0" />
+                  <stop offset="100%" style="stop-color:#CBD5E1" />
+                </linearGradient>
+              </defs>
+              
+              <rect width="400" height="200" rx="16" fill="url(#bgGrad)"/>
+              
+              <text x="200" y="100" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14" letter-spacing="2" opacity="0.9">NO CONTENT AVAILABLE</text>
             </svg>
-            <span class="text-sm">{{ $t('coverPreview') }}</span>
-          </div>
+          </template>
         </div>
 
         <!-- 预览信息 -->
@@ -374,7 +383,7 @@ async function handleAIFill() {
     // 验证AI配置
     const validationResult = validateAIConfig(aiConfig);
     if (!validationResult.isValid) {
-      showToast('AI配置不完整，请先完成配置', 'error');
+      showToast(t('aiConfigIncomplete'), 'error');
       isAIFilling.value = false;
       return;
     }
@@ -454,7 +463,7 @@ async function handleAIFill() {
     console.log('AI填写成功');
   } catch (error) {
     console.error('AI填写失败:', error);
-    showToast('AI填写失败: ' + error.message, 'error');
+    showToast(t('aiFillFailed') + ': ' + error.message, 'error');
   } finally {
     isAIFilling.value = false;
   }
@@ -637,39 +646,29 @@ function cropImage() {
 }
 
 async function onSubmit() {
-  // 如果没有上传封面图片，使用默认的 SVG
-  if (!previewImageUrl.value) {
-    // 默认 SVG 图片（一个简单的动漫风格封面）
-    const defaultSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="800" height="400" fill="url(#bg)" />
-      <circle cx="400" cy="200" r="120" fill="none" stroke="white" stroke-width="4" opacity="0.3" />
-      <path d="M360 180 L400 120 L440 180 Z" fill="white" opacity="0.5" />
-      <rect x="320" y="220" width="160" height="80" rx="10" fill="white" opacity="0.3" />
-      <text x="400" y="265" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">ANIME</text>
-    </svg>`;
-    previewImageUrl.value = defaultSvg;
-  }
-
-  if (cropperInstance) {
-    const cropSuccess = await cropImage();
-    if (!cropSuccess) {
-      showToast('裁剪失败，请重试', 'warning');
+  // 如果用户选择了封面图片，则进行裁剪和保存
+  if (previewImageUrl.value) {
+    if (cropperInstance) {
+      const cropSuccess = await cropImage();
+      if (!cropSuccess) {
+        showToast(t('cropFailed'), 'warning');
+        return;
+      }
+      coverPath.value = previewImageUrl.value;
+    } else if (!previewImageUrl.value.startsWith('data:image')) {
+      showToast(t('pleaseSelectImageOrCrop'), 'warning');
       return;
     }
-    coverPath.value = previewImageUrl.value;
-  }
 
-  const filename = `${Date.now()}.png`;
-  coverPath.value = await window.electronAPI.saveCropped({
-    dataURL: previewImageUrl.value,
-    filename
-  });
+    const filename = `${Date.now()}.png`;
+    coverPath.value = await window.electronAPI.saveCropped({
+      dataURL: previewImageUrl.value,
+      filename
+    });
+  } else {
+    // 如果用户没有选择封面图片，设置为空字符串，由后端或前端处理默认SVG
+    coverPath.value = '';
+  }
 
   const tagsToSave = tags.value && tags.value.length ? tags.value : [];
 
@@ -695,11 +694,11 @@ async function onSubmit() {
     }
     await window.electronAPI.updateEntry(entry);
     // 更新成功显示 Toast
-    showToast('条目更新成功', 'success');
+    showToast(t('entryUpdatedSuccess'), 'success');
   } else {
     await window.electronAPI.saveEntry(entry);
     // 保存成功显示 Toast
-    showToast('条目保存成功', 'success');
+    showToast(t('entrySavedSuccess'), 'success');
   }
 
   resetForm();

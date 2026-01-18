@@ -534,11 +534,11 @@ html.dark, body.dark {
 }
 
 .dark .modal-overlay {
-  background-color: transparent !important;
+  background-color: rgba(0, 0, 0, 0.7) !important;
 }
 
 .dark .modal-box {
-  background-color: transparent !important;
+  background-color: #1e293b !important;
   color: #f1f5f9;
 }
 
