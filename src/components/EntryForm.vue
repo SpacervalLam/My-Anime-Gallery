@@ -650,74 +650,87 @@ function cropImage() {
 }
 
 async function onSubmit() {
-  // 如果用户选择了封面图片，则进行裁剪和保存
-  if (previewImageUrl.value) {
-    if (cropperInstance) {
-      const cropSuccess = await cropImage();
-      if (!cropSuccess) {
-        showToast(t('cropFailed'), 'warning');
-        return;
-      }
-      coverPath.value = previewImageUrl.value;
-    } else if (!previewImageUrl.value.startsWith('data:image')) {
-      showToast(t('pleaseSelectImageOrCrop'), 'warning');
+  try {
+    // 表单验证：标题不能为空
+    if (!title.value.trim()) {
+      showToast(t('title') + ' ' + t('isRequired'), 'warning');
       return;
     }
 
-    const filename = `${Date.now()}.png`;
-    coverPath.value = await window.electronAPI.saveCropped({
-      dataURL: previewImageUrl.value,
-      filename
-    });
-  } else {
-    // 如果用户没有选择封面图片，设置为空字符串，由后端或前端处理默认SVG
-    coverPath.value = '';
-  }
+    // 如果用户选择了封面图片，则进行裁剪和保存
+    if (previewImageUrl.value) {
+      if (cropperInstance) {
+        const cropSuccess = await cropImage();
+        if (!cropSuccess) {
+          showToast(t('cropFailed'), 'warning');
+          return;
+        }
+        coverPath.value = previewImageUrl.value;
+      } else if (typeof previewImageUrl.value === 'string' && !previewImageUrl.value.startsWith('data:image')) {
+        showToast(t('pleaseSelectImageOrCrop'), 'warning');
+        return;
+      }
 
-  const tagsToSave = tags.value && tags.value.length ? tags.value : [];
-
-  const entry = {
-    id: formState.value.currentId,
-    title: title.value,
-    altTitles: JSON.stringify(altTitles.value.filter(t => t)),
-    tags: JSON.stringify(tagsToSave),
-    links: JSON.stringify(links.value.filter(l => l.url)),
-    coverPath: coverPath.value,
-    music: musicPath.value,
-    description: description.value.trim() || null
-  };
-
-  if (formState.value.isEditing) {
-    // 如果替换了封面，就先删除原来的文件
-    if (originalCoverPath.value && coverPath.value !== originalCoverPath.value) {
-      await window.electronAPI.deleteFile(originalCoverPath.value);
+      const filename = `${Date.now()}.png`;
+      coverPath.value = await window.electronAPI.saveCropped({
+        dataURL: previewImageUrl.value,
+        filename
+      });
+    } else {
+      // 如果用户没有选择封面图片，设置为空字符串，由后端或前端处理默认SVG
+      coverPath.value = '';
     }
-    // 如果替换了音乐，就先删除原来的文件
-    if (originalMusicPath.value && musicPath.value !== originalMusicPath.value) {
-      await window.electronAPI.deleteFile(originalMusicPath.value);
-    }
-    await window.electronAPI.updateEntry(entry);
-    // 更新成功显示 Toast
-    showToast($t('entryUpdatedSuccess'), 'success');
-  } else {
-    await window.electronAPI.saveEntry(entry);
-    // 保存成功显示 Toast
-    showToast($t('entrySavedSuccess'), 'success');
-  }
 
-  // 先触发保存完成事件
-  window.dispatchEvent(new Event('entry-saved'));
-  
-  // 然后关闭模态框
-  window.dispatchEvent(new Event('close-form'));
-  
-  // 重置表单状态
-  formState.value.isEditing = false;
-  formState.value.isVisible = false;
-  formState.value.currentId = null;
-  
-  // 最后重置表单数据
-  resetForm();
+    const tagsToSave = tags.value && tags.value.length ? tags.value : [];
+
+    const entry = {
+      id: formState.value.currentId,
+      title: title.value,
+      altTitles: JSON.stringify(altTitles.value.filter(t => t)),
+      tags: JSON.stringify(tagsToSave),
+      links: JSON.stringify(links.value.filter(l => l.url)),
+      coverPath: coverPath.value,
+      music: musicPath.value,
+      description: description.value.trim() || null
+    };
+
+    if (formState.value.isEditing) {
+      // 如果替换了封面，就先删除原来的文件
+      if (originalCoverPath.value && coverPath.value !== originalCoverPath.value) {
+        await window.electronAPI.deleteFile(originalCoverPath.value);
+      }
+      // 如果替换了音乐，就先删除原来的文件
+      if (originalMusicPath.value && musicPath.value !== originalMusicPath.value) {
+        await window.electronAPI.deleteFile(originalMusicPath.value);
+      }
+      await window.electronAPI.updateEntry(entry);
+      // 更新成功显示 Toast
+      showToast(t('entryUpdatedSuccess'), 'success');
+    } else {
+      await window.electronAPI.saveEntry(entry);
+      // 保存成功显示 Toast
+      showToast(t('entrySavedSuccess'), 'success');
+    }
+
+    // 先触发保存完成事件
+    window.dispatchEvent(new Event('entry-saved'));
+    
+    // 然后关闭模态框
+    window.dispatchEvent(new Event('close-form'));
+    
+    // 重置表单状态
+    formState.value.isEditing = false;
+    formState.value.isVisible = false;
+    formState.value.currentId = null;
+    
+    // 最后重置表单数据
+    resetForm();
+  } catch (error) {
+    console.error('保存条目失败:', error);
+    // 确保错误信息是字符串，避免显示异常
+    const errorMsg = error.message ? String(error.message) : 'Unknown error';
+    showToast(t('saveFailed') + ': ' + errorMsg, 'error');
+  }
 }
 </script>
 
