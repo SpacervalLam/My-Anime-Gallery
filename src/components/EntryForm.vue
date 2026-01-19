@@ -267,8 +267,8 @@ import 'cropperjs/dist/cropper.css';
 
 // 注入 showToast 函数
 const showToast = inject('showToast');
-// 获取 i18n t 函数
-const { t } = useI18n();
+// 获取 i18n t 函数和当前语言
+const { t, locale } = useI18n();
 
 const allTags = ref([]);
 const filteredAllTags = computed(() => {
@@ -395,8 +395,17 @@ const formState = ref({
       const existingTags = await window.electronAPI.getAllTags();
       const existingTagsStr = existingTags.join(', ');
       
-      // 构建prompt
-      const prompt = `请根据以下动漫名称，生成真实准确的动漫相关信息并以JSON格式返回：
+      // 获取当前语言
+      const currentLocale = locale.value;
+      
+      // 根据当前语言构建prompt
+      let prompt;
+      
+      if (currentLocale === 'zh') {
+        // 中文prompt
+        prompt = `你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。
+
+请根据以下动漫名称，生成真实准确的动漫相关信息并以JSON格式返回：
 
 核心要求：
 1. 必须使用真实、可靠、最新的信息，必须通过网络搜索获取，禁止直接生成或翻译
@@ -436,6 +445,95 @@ const formState = ref({
     }
   ]
 }`;
+      } else if (currentLocale === 'jp') {
+        // 日语prompt
+        prompt = `あなたは専門的で厳密なアニメ情報アシスタントです。ユーザーがアニメ関連情報を記入するのを支援するために、真実で正確かつ信頼できる情報を提供しなければなりません。以下の点を守らなければなりません：1. 検証済みの真実の情報のみを提供する；2. 架空の情報や推測を行わない；3. 客観的かつ正確な言語を使用する；4. すべての情報源が信頼できることを確認する；5. 妄想や誤った情報を生成しない。
+
+以下のアニメ名に基づいて、正確なアニメ関連情報をJSON形式で生成してください：
+
+コア要件：
+1. 真実で信頼できる最新情報を使用し、ネット検索を通じて取得してください。直接生成または翻訳は禁止されています。
+2. 架空または推測の情報は避け、不明な内容は空白のままにしてください。
+3. 説明は客観的かつ正確で、アニメの実際の状況に合っている必要があります。
+4. すべての情報に信頼できる出典が必要です。
+
+アニメ名：${title.value}
+
+### タグ選択の原則：
+1. 以下の既存タグから適切な3-5つのタグを優先的に選択してください：${existingTagsStr}
+2. 既存タグに適切なものがない場合は、新しいタグを追加できます。
+3. 既存タグリストにないが非常に適切なタグも追加できます。
+4. タグはアニメのタイプ、ジャンル、スタイルなどの特徴を正確に反映しなければなりません。
+
+### 他言語名の要件：
+1. 中国語、日本語、英語のうち複数の言語の公式名称を含めてください。
+2. 公式の異なる言語名はネット検索で取得してください。**直接翻訳は禁止されています**。
+3. 実在する公式名称のみ提供し、不明な内容は空白のままにしてください。
+4. アニメ名で提供されていない他の言語バージョンを優先的に提供してください。
+
+### リンクの要件：
+1. ネット検索で得られた実際にアクセス可能なリンクを提供してください。
+2. 例えば以下のタイプのいずれか：公式ウェブサイト、信頼できるアニメ視聴サイト、公式ソーシャルメディアアカウント
+3. 各リンクには実際のウェブサイト名と完全なURLを含めてください。
+4. リンクは生きており、アクセス可能でなければなりません。架空のリンクは禁止されています。
+
+以下のJSON形式のデータを厳密に返してください。追加のテキストは含めないでください：
+{
+  "altTitles": ["他言語の公式名称1", "他言語の公式名称2"],
+  "tags": ["タグ1", "タグ2", "タグ3"],
+  "description": "アニメの概要、100-200字、正確でなければなりません",
+  "links": [
+    {
+      "name": "ウェブサイトの実際の名前",
+      "url": "完全な実際のURL"
+    }
+  ]
+}`;
+      } else {
+        // 英语prompt
+        prompt = `You are a professional and rigorous anime information assistant. You must provide true, accurate, and reliable information to help users fill in anime-related information. You must: 1. Only provide verified true information; 2. Do not fabricate or guess any content; 3. Use objective and accurate language; 4. Ensure all information sources are reliable; 5. Avoid generating hallucinations or false information.
+
+Please generate accurate anime-related information in JSON format based on the following anime name:
+
+Core Requirements:
+1. Must use real, reliable, and up-to-date information obtained through web search. Direct generation or translation is prohibited.
+2. Avoid fictional or speculative information. Leave unknown content blank.
+3. Descriptions should be objective, accurate, and consistent with the actual situation of the anime.
+4. All information must have reliable sources to ensure authenticity.
+
+Anime Name: ${title.value}
+
+### Tag Selection Principles:
+1. Priority is given to selecting appropriate 3-5 tags from the following existing tags: ${existingTagsStr}
+2. If there are no suitable tags in the existing tags, new tags can be added.
+3. Very suitable tags that are not in the existing tag list can also be added.
+4. Tags must accurately reflect the type, theme, style, etc. of the anime.
+
+### Other Language Name Requirements:
+1. Include official names in several of Chinese, Japanese, and English.
+2. Must obtain official different language names through web search. **Direct translation is strictly prohibited**.
+3. Only provide real existing official names. Leave unknown content blank.
+4. Priority is given to providing other language versions that are not given in the anime name.
+
+### Link Requirements:
+1. Must provide real and accessible links obtained through web search.
+2. For example, one of the following types: official website, authoritative anime streaming website, official social media account
+3. Each link must include the real website name and complete URL.
+4. Links must be live and accessible. Fictional links are prohibited.
+
+Please strictly return the following JSON format data without any additional text:
+{
+  "altTitles": ["Other Language Official Name 1", "Other Language Official Name 2"],
+  "tags": ["Genre Tag 1", "Genre Tag 2", "Genre Tag 3"],
+  "description": "Anime introduction, 100-200 words, must be true and accurate",
+  "links": [
+    {
+      "name": "Real Website Name",
+      "url": "Complete Real URL"
+    }
+  ]
+}`;
+      }
       
       // 发送AI请求，增加超时时间到60秒
       const aiResponse = await sendAIRequest(aiConfig, prompt, 60000);

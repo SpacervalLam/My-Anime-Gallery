@@ -868,7 +868,7 @@ ipcMain.handle('ai:sendRequest', async (event, aiConfig, prompt, timeout = 30000
             {
               parts: [
                 {
-                  text: (aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。') + '\n\n' + prompt
+                  text: prompt
                 }
               ]
             }
@@ -887,10 +887,6 @@ ipcMain.handle('ai:sendRequest', async (event, aiConfig, prompt, timeout = 30000
           model: aiConfig.model,
           messages: [
             {
-              role: 'system',
-              content: aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。'
-            },
-            {
               role: 'user',
               content: prompt
             }
@@ -903,11 +899,10 @@ ipcMain.handle('ai:sendRequest', async (event, aiConfig, prompt, timeout = 30000
       case 'doubao':
         // 火山引擎豆包API格式
         requestConfig.headers['Authorization'] = `Bearer ${aiConfig.apiKey}`;
-        // 组合systemPrompt和prompt作为input
-        const combinedInput = (aiConfig.systemPrompt || '你是一个专业、严谨的动漫信息助手，必须提供真实、准确、可靠的信息，帮助用户填写动漫相关信息。你必须：1. 只提供经过验证的真实信息；2. 不虚构或猜测任何内容；3. 使用客观、准确的语言；4. 确保所有信息来源可靠；5. 避免产生幻觉或错误信息。') + '\n\n' + prompt;
+        // 直接使用前端构建好的完整prompt，不再拼接系统提示
         requestBody = {
           model: aiConfig.model,
-          input: combinedInput
+          input: prompt
         };
         break;
         
@@ -917,10 +912,6 @@ ipcMain.handle('ai:sendRequest', async (event, aiConfig, prompt, timeout = 30000
         requestBody = {
           model: aiConfig.model,
           messages: [
-            {
-              role: 'system',
-              content: aiConfig.systemPrompt || '你是一个专业的动漫信息助手，帮助用户填写动漫相关信息'
-            },
             {
               role: 'user',
               content: prompt
