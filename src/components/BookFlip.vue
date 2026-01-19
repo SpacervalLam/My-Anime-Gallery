@@ -1,12 +1,13 @@
 <template>
-  <div class="book-wrapper" ref="wrapper">
-    <div v-if="showModal" class="modal-backdrop"></div>
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-content">
-        <EntryForm :initialEntry="editingEntry" @close="closeModal" />
-      </div>
+  <!-- 模态框 -->
+  <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div class="modal-content">
+      <EntryForm :initialEntry="editingEntry" @close="closeModal" />
     </div>
+  </div>
 
+  <!-- 书本容器 -->
+  <div class="book-wrapper" ref="wrapper" :class="{ 'modal-open': showModal }">
     <div class="book-wrapper-inner">
       <div class="page-nav prev" @click="flipPagePrev" :class="{ disabled: isAtFirstPage }">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -14,79 +15,79 @@
         </svg>
       </div>
 
-      <div class="book-container" ref="container" :class="{ blurred: showModal }"
+      <div class="book-container" ref="container"
         @contextmenu.prevent="handleContextMenu">
-      <!-- 封面页（第一页） -->
-      <div class="page cover front">
-        <div class="cover-content">
-          <div class="title">{{ $t('my_anime_journal') }}</div>
-          <div class="hint">{{ $t('right_click_to_flip') }}</div>
-        </div>
-      </div>
-
-      <!-- 封底内页（第二页） -->
-      <div class="page cover-back inner">
-        <div class="content-page">
-          <div class="page-content">
-            <EntryList @result-click="openEntryDetail" />
+        <!-- 封面页（第一页） -->
+        <div class="page cover front">
+          <div class="cover-content">
+            <div class="title">{{ $t('my_anime_journal') }}</div>
+            <div class="hint">{{ $t('right_click_to_flip') }}</div>
           </div>
         </div>
-      </div>
 
-      <!-- 搜索页（第三页） -->
-      <div class="page first-page inner">
-        <div class="content-page">
-          <SearchComponent @result-click="openEntryDetail" />
-        </div>
-      </div>
-
-      <!-- 详情页（第四页） -->
-      <div class="page inner">
-        <div class="content-page">
-          <EntryDetail :entryId="currentEntryId" />
-        </div>
-      </div>
-
-      <!-- EPUB 展示页（第五页）-->
-      <div class="page inner">
-        <div class="content-page">
-          <LinkDisplay v-if="currentEpubUrl" :url="currentEpubUrl" />
-          <div v-else class="no-epub-placeholder">
-            <p>{{ $t('no_link_detected') }}</p>
+        <!-- 封底内页（第二页） -->
+        <div class="page cover-back inner">
+          <div class="content-page">
+            <div class="page-content">
+              <EntryList @result-click="openEntryDetail" />
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 保留的空白页 -->
-      <div class="page inner">
-        <div class="content-page">
-          <div class="single-page-content">
-            <div class="additional-content">{{ $t('more_content_area_1') }}</div>
-            <div class="additional-content">{{ $t('more_content_area_2') }}</div>
+        <!-- 搜索页（第三页） -->
+        <div class="page first-page inner">
+          <div class="content-page">
+            <SearchComponent @result-click="openEntryDetail" />
           </div>
         </div>
-      </div>
 
-      <div class="page inner">
-        <div class="content-page">
-          <div class="single-page-content">
-            <div class="additional-content">{{ $t('more_content_area_3') }}</div>
-            <div class="additional-content">{{ $t('more_content_area_4') }}</div>
+        <!-- 详情页（第四页） -->
+        <div class="page inner">
+          <div class="content-page">
+            <EntryDetail :entryId="currentEntryId" />
           </div>
         </div>
+
+        <!-- EPUB 展示页（第五页）-->
+        <div class="page inner">
+          <div class="content-page">
+            <LinkDisplay v-if="currentEpubUrl" :url="currentEpubUrl" />
+            <div v-else class="no-epub-placeholder">
+              <p>{{ $t('no_link_detected') }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 保留的空白页 -->
+        <div class="page inner">
+          <div class="content-page">
+            <div class="single-page-content">
+              <div class="additional-content">{{ $t('more_content_area_1') }}</div>
+              <div class="additional-content">{{ $t('more_content_area_2') }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page inner">
+          <div class="content-page">
+            <div class="single-page-content">
+              <div class="additional-content">{{ $t('more_content_area_3') }}</div>
+              <div class="additional-content">{{ $t('more_content_area_4') }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 书页最后一页 -->
+        <div class="page cover back"></div>
       </div>
 
-      <!-- 书页最后一页 -->
-      <div class="page cover back"></div>
-    </div>
-
-    <div class="page-nav next" @click="flipPageNext" :class="{ disabled: isAtLastPage }">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 18l6-6-6-6"></path>
-      </svg>
+      <div class="page-nav next" @click="flipPageNext" :class="{ disabled: isAtLastPage }">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"></path>
+        </svg>
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <script setup>
@@ -162,7 +163,9 @@ const openModal = () => {
 
 // 关闭编辑表单模态框
 const closeModal = () => {
+  // 确保在关闭模态框时重置所有相关状态
   showModal.value = false;
+  editingEntry.value = null;
   document.body.style.overflow = originalOverflow.value;
   document.removeEventListener('keydown', handleKeydown);
   window.addEventListener('resize', handleResize);
@@ -174,8 +177,14 @@ const closeModal = () => {
 
 // 收到外部请求打开某条目编辑
 function openEditModal(entry) {
-  editingEntry.value = entry;
-  openModal();
+  // 确保只在需要时打开模态框，避免重复触发
+  if (!showModal.value) {
+    editingEntry.value = entry;
+    openModal();
+  } else {
+    // 如果模态框已经打开，先更新编辑条目，确保表单显示正确内容
+    editingEntry.value = entry;
+  }
 }
 
 // 处理键盘按下事件，ESC 键关闭模态框
@@ -316,6 +325,11 @@ body.modal-open .pf__page-cover-back {
   width: fit-content;
   position: relative;
   z-index: 1;
+  transition: filter 0.3s ease-in-out;
+}
+
+.book-wrapper.modal-open {
+  filter: blur(5px);
 }
 
 .book-wrapper-inner {
@@ -360,21 +374,13 @@ body.modal-open .pf__page-cover-back {
   background: #334155;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: transparent;
-  z-index: 9998;
-  pointer-events: auto;
-}
-
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -420,11 +426,6 @@ body.modal-open .pf__page-cover-back {
   position: relative;
   --page-width: calc(80vw * 1.08 - 20px);
   --page-height: calc(var(--page-width) * 1.4);
-  transition: filter 0.3s ease-in-out;
-}
-
-.book-container.blurred {
-  filter: blur(5px);
 }
 
 .pf__page,
@@ -560,10 +561,6 @@ body.modal-open .pf__page-cover-back {
 }
 
 /* === Dark Theme Support === */
-.dark .modal-overlay {
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
 .dark .modal-content {
   background: #1e293b; 
   color: #f1f5f9;
@@ -596,10 +593,6 @@ body.modal-open .pf__page-cover-back {
 }
 
 .dark .book-wrapper {
-  background-color: transparent !important;
-}
-
-.dark .modal-backdrop {
   background-color: transparent !important;
 }
 </style>

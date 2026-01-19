@@ -261,11 +261,14 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, watch, inject } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 
 // 注入 showToast 函数
 const showToast = inject('showToast');
+// 获取 i18n t 函数
+const { t } = useI18n();
 
 const allTags = ref([]);
 const filteredAllTags = computed(() => {
@@ -302,98 +305,98 @@ const props = defineProps({
 });
 
 const formState = ref({
-  isVisible: false,
-  isEditing: false,
-  currentId: null
-});
+    isVisible: false,
+    isEditing: false,
+    currentId: null
+  });
 
-const originalCoverPath = ref(null);
-const originalMusicPath = ref(null);
-const isAIFilling = ref(false);
+  const originalCoverPath = ref(null);
+  const originalMusicPath = ref(null);
+  const isAIFilling = ref(false);
 
-function getRandomLightColor(tag) {
-  if (!tagColors.value[tag]) {
-    const colors = [
-      'bg-blue-100 text-blue-800',
-      'bg-green-100 text-green-800',
-      'bg-yellow-100 text-yellow-800',
-      'bg-purple-100 text-purple-800',
-      'bg-pink-100 text-pink-800',
-      'bg-indigo-100 text-indigo-800'
-    ];
-    tagColors.value[tag] = colors[Math.floor(Math.random() * colors.length)];
+  function getRandomLightColor(tag) {
+    if (!tagColors.value[tag]) {
+      const colors = [
+        'bg-blue-100 text-blue-800',
+        'bg-green-100 text-green-800',
+        'bg-yellow-100 text-yellow-800',
+        'bg-purple-100 text-purple-800',
+        'bg-pink-100 text-pink-800',
+        'bg-indigo-100 text-indigo-800'
+      ];
+      tagColors.value[tag] = colors[Math.floor(Math.random() * colors.length)];
+    }
+    return tagColors.value[tag];
   }
-  return tagColors.value[tag];
-}
 
-function addExistingTag(tag) {
-  if (!tags.value.includes(tag)) {
-    tags.value.push(tag);
-    getRandomLightColor(tag);
-    showEscHint.value = false;
-  }
-}
-
-async function addTag() {
-  if (newTag.value.trim() && !tags.value.includes(newTag.value.trim())) {
-    tags.value.push(newTag.value.trim());
-    const addedTag = newTag.value.trim();
-    newTag.value = '';
-    showEscHint.value = false;
-
-    // 调用后端接口获取推荐标签
-    try {
-      const response = await window.electronAPI.getRecommendedTags(addedTag);
-      if (response && Array.isArray(response)) {
-        allTags.value = response;
-      }
-    } catch (error) {
-      console.error('获取推荐标签失败:', error);
+  function addExistingTag(tag) {
+    if (!tags.value.includes(tag)) {
+      tags.value.push(tag);
+      getRandomLightColor(tag);
+      showEscHint.value = false;
     }
   }
-}
 
-function removeTag(index) {
-  tags.value.splice(index, 1);
-}
+  async function addTag() {
+    if (newTag.value.trim() && !tags.value.includes(newTag.value.trim())) {
+      tags.value.push(newTag.value.trim());
+      const addedTag = newTag.value.trim();
+      newTag.value = '';
+      showEscHint.value = false;
 
-function addLink() {
-  links.value.push({ name: '', url: '' });
-}
-
-function removeLink(index) {
-  links.value.splice(index, 1);
-}
-
-// 导入AI API服务
-import { sendAIRequest, validateAIConfig } from '../services/aiApiService';
-
-async function handleAIFill() {
-  if (!title.value || title.value.trim() === '') {
-    showToast($t('title') + ' ' + $t('isRequired'), 'warning');
-    return;
+      // 调用后端接口获取推荐标签
+      try {
+        const response = await window.electronAPI.getRecommendedTags(addedTag);
+        if (response && Array.isArray(response)) {
+          allTags.value = response;
+        }
+      } catch (error) {
+        console.error('获取推荐标签失败:', error);
+      }
+    }
   }
-  
-  isAIFilling.value = true;
-  
-  try {
-    // 获取AI配置
-    const aiConfig = await window.electronAPI.loadAIConfig();
-    
-    // 验证AI配置
-    const validationResult = validateAIConfig(aiConfig);
-    if (!validationResult.isValid) {
-      showToast(t('aiConfigIncomplete'), 'error');
-      isAIFilling.value = false;
+
+  function removeTag(index) {
+    tags.value.splice(index, 1);
+  }
+
+  function addLink() {
+    links.value.push({ name: '', url: '' });
+  }
+
+  function removeLink(index) {
+    links.value.splice(index, 1);
+  }
+
+  // 导入AI API服务
+  import { sendAIRequest, validateAIConfig } from '../services/aiApiService';
+
+  async function handleAIFill() {
+    if (!title.value || title.value.trim() === '') {
+      showToast(t('title') + ' ' + t('isRequired'), 'warning');
       return;
     }
     
-    // 获取现有标签
-    const existingTags = await window.electronAPI.getAllTags();
-    const existingTagsStr = existingTags.join(', ');
+    isAIFilling.value = true;
     
-    // 构建prompt
-    const prompt = `请根据以下动漫名称，生成真实准确的动漫相关信息并以JSON格式返回：
+    try {
+      // 获取AI配置
+      const aiConfig = await window.electronAPI.loadAIConfig();
+      
+      // 验证AI配置
+      const validationResult = validateAIConfig(aiConfig);
+      if (!validationResult.isValid) {
+        showToast(t('aiConfigIncomplete'), 'error');
+        isAIFilling.value = false;
+        return;
+      }
+      
+      // 获取现有标签
+      const existingTags = await window.electronAPI.getAllTags();
+      const existingTagsStr = existingTags.join(', ');
+      
+      // 构建prompt
+      const prompt = `请根据以下动漫名称，生成真实准确的动漫相关信息并以JSON格式返回：
 
 核心要求：
 1. 必须使用真实、可靠、最新的信息，必须通过网络搜索获取，禁止直接生成或翻译
@@ -433,46 +436,47 @@ async function handleAIFill() {
     }
   ]
 }`;
-    
-    // 发送AI请求，增加超时时间到60秒
-    const aiResponse = await sendAIRequest(aiConfig, prompt, 60000);
-    
-    // 填充表单
-    if (aiResponse.altTitles && Array.isArray(aiResponse.altTitles)) {
-      altTitles.value = aiResponse.altTitles;
+      
+      // 发送AI请求，增加超时时间到60秒
+      const aiResponse = await sendAIRequest(aiConfig, prompt, 60000);
+      
+      // 填充表单
+      if (aiResponse.altTitles && Array.isArray(aiResponse.altTitles)) {
+        altTitles.value = aiResponse.altTitles;
+      }
+      
+      if (aiResponse.tags && Array.isArray(aiResponse.tags)) {
+        aiResponse.tags.forEach(tag => {
+          if (!tags.value.includes(tag)) {
+            tags.value.push(tag);
+            getRandomLightColor(tag);
+          }
+        });
+      }
+      
+      if (aiResponse.description && typeof aiResponse.description === 'string') {
+        description.value = aiResponse.description;
+      }
+      
+      if (aiResponse.links && Array.isArray(aiResponse.links)) {
+        links.value = aiResponse.links;
+      }
+      
+      showEscHint.value = false;
+      console.log('AI填写成功');
+    } catch (error) {
+      console.error('AI填写失败:', error);
+      showToast(t('aiFillFailed') + ': ' + error.message, 'error');
+    } finally {
+      isAIFilling.value = false;
     }
-    
-    if (aiResponse.tags && Array.isArray(aiResponse.tags)) {
-      aiResponse.tags.forEach(tag => {
-        if (!tags.value.includes(tag)) {
-          tags.value.push(tag);
-          getRandomLightColor(tag);
-        }
-      });
-    }
-    
-    if (aiResponse.description && typeof aiResponse.description === 'string') {
-      description.value = aiResponse.description;
-    }
-    
-    if (aiResponse.links && Array.isArray(aiResponse.links)) {
-      links.value = aiResponse.links;
-    }
-    
-    showEscHint.value = false;
-    console.log('AI填写成功');
-  } catch (error) {
-    console.error('AI填写失败:', error);
-    showToast(t('aiFillFailed') + ': ' + error.message, 'error');
-  } finally {
-    isAIFilling.value = false;
   }
-}
 
 watch(() => props.initialEntry, entry => {
   if (!entry) {
     resetForm();
     formState.value.isEditing = false;
+    formState.value.isVisible = false;
     return;
   }
   console.log('[EntryForm] init form with', entry.id);
@@ -694,18 +698,26 @@ async function onSubmit() {
     }
     await window.electronAPI.updateEntry(entry);
     // 更新成功显示 Toast
-    showToast(t('entryUpdatedSuccess'), 'success');
+    showToast($t('entryUpdatedSuccess'), 'success');
   } else {
     await window.electronAPI.saveEntry(entry);
     // 保存成功显示 Toast
-    showToast(t('entrySavedSuccess'), 'success');
+    showToast($t('entrySavedSuccess'), 'success');
   }
 
-  resetForm();
-  formState.value.isEditing = false;
+  // 先触发保存完成事件
   window.dispatchEvent(new Event('entry-saved'));
-  // 关闭模态框，防止显示空表单
+  
+  // 然后关闭模态框
   window.dispatchEvent(new Event('close-form'));
+  
+  // 重置表单状态
+  formState.value.isEditing = false;
+  formState.value.isVisible = false;
+  formState.value.currentId = null;
+  
+  // 最后重置表单数据
+  resetForm();
 }
 </script>
 
