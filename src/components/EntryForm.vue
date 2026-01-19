@@ -562,6 +562,8 @@ Please strictly return the following JSON format data without any additional tex
       
       showEscHint.value = false;
       console.log('AI填写成功');
+      // 显示AI补全成功的Toast提示
+      showToast(t('aiFillSuccess'), 'success');
     } catch (error) {
       console.error('AI填写失败:', error);
       showToast(t('aiFillFailed') + ': ' + error.message, 'error');

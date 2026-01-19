@@ -147,6 +147,7 @@
   "pleaseSelectImageOrCrop": "请先选择图片或应用裁剪",
   "entryUpdatedSuccess": "条目更新成功",
   "entrySavedSuccess": "条目保存成功",
+  "aiFillSuccess": "AI补全完成",
   "exportEntriesCount": "导出条目数量",
   "exportEntries": "导出条目",
   "selectAll": "全选"

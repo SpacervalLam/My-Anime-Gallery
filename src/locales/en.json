@@ -147,6 +147,7 @@
   "pleaseSelectImageOrCrop": "Please select an image or apply crop first",
   "entryUpdatedSuccess": "Entry updated successfully",
   "entrySavedSuccess": "Entry saved successfully",
+  "aiFillSuccess": "AI fill completed successfully",
   "exportEntriesCount": "Export Entries Count",
   "exportEntries": "Export Entries",
   "selectAll": "Select All"
