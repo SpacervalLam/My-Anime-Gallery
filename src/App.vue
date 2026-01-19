@@ -42,9 +42,43 @@
 
     <!-- 导出数据模态框 -->
     <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
-      <div class="modal-box">
+      <div class="modal-box export-modal">
         <h3 class="modal-title">{{ $t('exportData') }}</h3>
         <p>{{ $t('selectExportDirectory') }}</p>
+
+        <!-- 导出条目信息 -->
+        <div class="export-entries-info">
+          <div class="entries-header">
+            <div class="entries-count">
+              <strong>{{ $t('exportEntriesCount') }}:</strong> {{ selectedEntryIds.size }} / {{ entries.length }}
+            </div>
+            <label class="select-all-label">
+              <input 
+                type="checkbox" 
+                :checked="isSelectAll" 
+                :indeterminate="isPartialSelect" 
+                @change="toggleSelectAll" 
+              />
+              {{ $t('selectAll') }}
+            </label>
+          </div>
+          <div class="entries-list">
+            <div class="entries-names">
+              <label 
+                v-for="entry in entries" 
+                :key="entry.id" 
+                class="entry-select-item"
+              >
+                <input 
+                  type="checkbox" 
+                  :checked="selectedEntryIds.has(entry.id)" 
+                  @change="toggleEntrySelection(entry.id)" 
+                />
+                <span class="entry-name">{{ entry.title }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
 
         <!-- 导出选项：封面、音乐复选框 -->
         <div class="export-options">
@@ -121,11 +155,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, provide } from 'vue';
+import { ref, onMounted, onUnmounted, provide, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BookFlip from './components/BookFlip.vue';
 import Settings from './components/Settings.vue';
 import AIConfig from './components/AIConfig.vue';
 import ToastNotification from './components/ToastNotification.vue';
+
+const { t } = useI18n();
 
 // ------------------- 主题切换 -------------------
 const isDarkMode = ref(false);
@@ -217,12 +254,58 @@ const exporting = ref(false);           // 导出中状态
 const exportMsg = ref('');
 const exportStatus = ref('');
 let archivePath = '';
+const entries = ref([]); // 存储条目数据
+const selectedEntryIds = ref(new Set()); // 存储选中的条目ID，默认全选
 
-const openExportModal = () => {
+// 获取所有条目数据
+const loadEntries = async () => {
+  try {
+    entries.value = await window.electronAPI.getEntries();
+    // 默认全选所有条目
+    selectedEntryIds.value = new Set(entries.value.map(entry => entry.id));
+  } catch (error) {
+    console.error('Failed to load entries for export:', error);
+    entries.value = [];
+    selectedEntryIds.value = new Set();
+  }
+};
+
+// 切换单个条目选择状态
+const toggleEntrySelection = (entryId) => {
+  if (selectedEntryIds.value.has(entryId)) {
+    selectedEntryIds.value.delete(entryId);
+  } else {
+    selectedEntryIds.value.add(entryId);
+  }
+};
+
+// 切换全选/取消全选
+const toggleSelectAll = () => {
+  if (selectedEntryIds.value.size === entries.value.length) {
+    // 当前是全选状态，取消全选
+    selectedEntryIds.value.clear();
+  } else {
+    // 当前不是全选状态，全选所有条目
+    selectedEntryIds.value = new Set(entries.value.map(entry => entry.id));
+  }
+};
+
+// 判断是否全选
+const isSelectAll = computed(() => {
+  return entries.value.length > 0 && selectedEntryIds.value.size === entries.value.length;
+});
+
+// 判断是否部分选择
+const isPartialSelect = computed(() => {
+  return selectedEntryIds.value.size > 0 && selectedEntryIds.value.size < entries.value.length;
+});
+
+const openExportModal = async () => {
   exportMsg.value = '';
   exportStatus.value = '';
   exportIncludeImages.value = true;
   exportIncludeMusic.value = true;
+  await loadEntries(); // 加载条目数据
   showExportModal.value = true;
 };
 const closeExportModal = () => {
@@ -232,30 +315,31 @@ const closeExportModal = () => {
 };
 
 const handleExport = async () => {
-  if (exporting.value) return;
+  if (exporting.value || selectedEntryIds.value.size === 0) return;
   exporting.value = true;
   exportMsg.value = '';
   exportStatus.value = '';
   try {
     const result = await window.electronAPI.exportData({
       includeImages: exportIncludeImages.value,
-      includeMusic: exportIncludeMusic.value
+      includeMusic: exportIncludeMusic.value,
+      selectedEntryIds: Array.from(selectedEntryIds.value)
     });
     if (result.success) {
       archivePath = result.archivePath;
-      exportMsg.value = `✔ ${$t('exportSuccess')}！路径：${archivePath}`;
+      exportMsg.value = `✔ ${t('exportSuccess')}！路径：${archivePath}`;
       exportStatus.value = 'success';
-      showToast($t('exportSuccess'), 'success');
+      showToast(t('exportSuccess'), 'success');
     } else {
-      exportMsg.value = `✖ ${$t('exportFailed')}：${result.message || '未知错误'}`;
+      exportMsg.value = `✖ ${t('exportFailed')}：${result.message || '未知错误'}`;
       exportStatus.value = 'error';
-      showToast($t('exportFailed') + '：' + (result.message || '未知错误'), 'error');
+      showToast(t('exportFailed') + '：' + (result.message || '未知错误'), 'error');
     }
   } catch (err) {
     console.error('导出异常：', err);
-    exportMsg.value = `✖ ${$t('exportException')}：${err.message || '网络错误'}`;
+    exportMsg.value = `✖ ${t('exportException')}：${err.message || '网络错误'}`;
     exportStatus.value = 'error';
-    showToast($t('exportException') + '：' + (err.message || '网络错误'), 'error');
+    showToast(t('exportException') + '：' + (err.message || '网络错误'), 'error');
   } finally {
     exporting.value = false;
   }
@@ -300,7 +384,7 @@ const handleImport = async () => {
   try {
     const result = await window.electronAPI.importData();
     if (result.success) {
-      importMsg.value = $t('importComplete');
+      importMsg.value = t('importComplete');
       importStatus.value = 'success';
       importedCount.value = result.importedCount || 0;
       if (result.conflictTitles && result.conflictTitles.length > 0) {
@@ -324,17 +408,17 @@ const handleImport = async () => {
       };
       setTimeout(checkDataUpdated, 200);
       
-      showToast($t('importComplete'), 'success');
+      showToast(t('importComplete'), 'success');
     } else {
-      importMsg.value = `✖ ${$t('importFailed')}：${result.message || '未知错误'}`;
+      importMsg.value = `✖ ${t('importFailed')}：${result.message || '未知错误'}`;
       importStatus.value = 'error';
-      showToast($t('importFailed') + '：' + (result.message || '未知错误'), 'error');
+      showToast(t('importFailed') + '：' + (result.message || '未知错误'), 'error');
     }
   } catch (err) {
     console.error('导入异常：', err);
-    importMsg.value = `✖ ${$t('importException')}：${err.message || '文件读取错误'}`;
+    importMsg.value = `✖ ${t('importException')}：${err.message || '文件读取错误'}`;
     importStatus.value = 'error';
-    showToast($t('importException') + '：' + (err.message || '文件读取错误'), 'error');
+    showToast(t('importException') + '：' + (err.message || '文件读取错误'), 'error');
   } finally {
     importing.value = false;
   }
@@ -545,6 +629,110 @@ html.dark, body.dark {
 .modal-title {
   margin: 0 0 12px;
   font-size: 18px;
+}
+
+/* 导出模态框特殊样式 */
+.export-modal {
+  width: 500px;
+  max-width: 90%;
+}
+
+/* 导出条目信息 */
+.export-entries-info {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dark .export-entries-info {
+  background: #334155;
+}
+
+.entries-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.entries-count {
+  font-size: 14px;
+}
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.select-all-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.entries-list {
+  margin-top: 12px;
+}
+
+.entries-names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.entry-select-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dark .entry-select-item {
+  background: #475569;
+}
+
+.entry-select-item:hover {
+  background: #e2e8f0;
+}
+
+.dark .entry-select-item:hover {
+  background: #374151;
+}
+
+.entry-select-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.entry-name {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  flex-grow: 1;
+}
+
+.dark .entry-name {
+  background: transparent;
+  color: inherit;
 }
 
 /* 导出选项区 (复选框) */

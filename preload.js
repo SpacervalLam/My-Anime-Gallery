@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   // 发起“导出”请求：弹出目录选择对话框并导出数据库与媒体
-  exportData: () => ipcRenderer.invoke('export-anime-data'),
+  exportData: (options) => ipcRenderer.invoke('export-anime-data', options),
 
   // 发起“导入”请求：弹出目录选择对话框并导入已解压的导出包
   importData: () => ipcRenderer.invoke('import-anime-data'),

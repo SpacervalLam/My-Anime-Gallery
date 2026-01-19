@@ -146,5 +146,8 @@
   "cropFailed": "Crop failed, please try again",
   "pleaseSelectImageOrCrop": "Please select an image or apply crop first",
   "entryUpdatedSuccess": "Entry updated successfully",
-  "entrySavedSuccess": "Entry saved successfully"
+  "entrySavedSuccess": "Entry saved successfully",
+  "exportEntriesCount": "Export Entries Count",
+  "exportEntries": "Export Entries",
+  "selectAll": "Select All"
 }

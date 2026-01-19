@@ -117,7 +117,7 @@ ipcMain.handle('show-in-folder', async (event, filePath) => {
 
 // =============================================
 // 3. IPC: 导出数据（可选是否包含封面与音乐）
-//    接收参数 { includeImages: boolean, includeMusic: boolean }
+//    接收参数 { includeImages: boolean, includeMusic: boolean, selectedEntryIds: string[] }
 // =============================================
 ipcMain.handle('export-anime-data', async (event, options) => {
   try {
@@ -133,10 +133,10 @@ ipcMain.handle('export-anime-data', async (event, options) => {
     const selectedDir = filePaths[0];
 
     // 3.2 将选项合并，若无传参则默认都导出
-    const { includeImages = true, includeMusic = true } = options || {};
+    const { includeImages = true, includeMusic = true, selectedEntryIds = [] } = options || {};
 
-    // 3.3 调用 doExport(exportDir, includeImages, includeMusic)
-    const archivePath = await doExport(selectedDir, includeImages, includeMusic);
+    // 3.3 调用 doExport(exportDir, includeImages, includeMusic, selectedEntryIds)
+    const archivePath = await doExport(selectedDir, includeImages, includeMusic, selectedEntryIds);
     return { success: true, message: '导出并压缩成功', archivePath };
   } catch (err) {
     console.error('导出失败：', err);
@@ -152,8 +152,9 @@ ipcMain.handle('export-anime-data', async (event, options) => {
 //   selectedDir   - 用户选中的导出目录（绝对路径）
 //   includeImages - 是否拷贝封面（true/false）
 //   includeMusic  - 是否拷贝音乐（true/false）
+//   selectedEntryIds - 选中要导出的条目ID数组（为空则导出所有条目）
 // =============================================
-async function doExport(selectedDir, includeImages, includeMusic) {
+async function doExport(selectedDir, includeImages, includeMusic, selectedEntryIds = []) {
   // 4.1 本地数据库检查
   const dbFilename = 'db.sqlite';
   const dbPath = path.join(app.getPath('userData'), dbFilename);
@@ -173,9 +174,20 @@ async function doExport(selectedDir, includeImages, includeMusic) {
   if (includeImages && !fs.existsSync(coverDir)) mkdirp.sync(coverDir);
   if (includeMusic && !fs.existsSync(musicDir)) mkdirp.sync(musicDir);
 
-  // 4.4 读取所有条目
+  // 4.4 读取条目（如果有选中的条目ID，则只读取选中的条目）
   const repo = AppDataSource.getRepository('AnimeEntry');
-  const rows = await repo.find();
+  let rows;
+  if (selectedEntryIds && selectedEntryIds.length > 0) {
+    // 只读取选中的条目
+    rows = await repo.find({
+      where: {
+        id: selectedEntryIds
+      }
+    });
+  } else {
+    // 读取所有条目
+    rows = await repo.find();
+  }
 
   // 4.5 辅助：计算文件哈希
   function hashFile(filepath) {
